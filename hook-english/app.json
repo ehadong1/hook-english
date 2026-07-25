@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Hook English",
+    "slug": "hook-english",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "scheme": "hookenglish",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#1e3a8a",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.hookenglish.app"
+    },
+    "android": {
+      "package": "com.hookenglish.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#1e3a8a"
+      }
+    },
+    "plugins": ["expo-router"]
+  }
+}
