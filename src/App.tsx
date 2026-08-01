@@ -3,7 +3,8 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   BookOpen, Volume2, Mic, Check, X, ChevronDown, MessageCircle,
   RotateCcw, Star, Square, Play, Pause, Repeat, Sparkles, Clock,
-  Send, Info, Settings, Languages, Loader2, AudioLines,
+  Send, Info, Settings, Languages, Loader2, AudioLines, Newspaper,
+  PenLine, Notebook, ChevronUp,
 } from "lucide-react";
 
 /* ============================================================================
@@ -15,37 +16,60 @@ const SURVEY_QUESTIONS = [
   {
     key: "level",
     title: "현재 영어 실력은 어느 정도인가요?",
-    sub: "난이도와 어휘 수준을 결정합니다",
+    sub: "9단계 중 가장 가까운 수준을 선택해 주세요",
+    multi: false,
     options: [
-      { value: "왕초보", label: "왕초보", desc: "단어 위주로 겨우 의사 전달" },
-      { value: "기초 회화", label: "기초 회화", desc: "짧은 문장으로 일상 대화 가능" },
-      { value: "중상급", label: "중상급", desc: "비즈니스·시사 토론까지 가능" },
+      { value: "L1", label: "L1 · 입문", desc: "알파벳·기본 인사만 가능" },
+      { value: "L2", label: "L2 · 초급 하", desc: "단어 위주, 짧은 답변만 가능" },
+      { value: "L3", label: "L3 · 초급 중", desc: "간단한 문장으로 의사 전달" },
+      { value: "L4", label: "L4 · 초급 상", desc: "일상 대화는 가능, 긴 문장은 어려움" },
+      { value: "L5", label: "L5 · 중급", desc: "업무·여행에서 기본 소통 가능" },
+      { value: "L6", label: "L6 · 중급 상", desc: "회의·이메일로 업무 처리 가능" },
+      { value: "L7", label: "L7 · 고급", desc: "전문 주제 토론·발표 가능" },
+      { value: "L8", label: "L8 · 고급 상", desc: "협상·설득 등 복잡한 대화 가능" },
+      { value: "L9", label: "L9 · 최상", desc: "유창하나 뉘앙스·발음을 다듬고 싶음" },
     ],
   },
   {
-    key: "topic",
-    title: "어떤 주제로 배우고 싶으세요?",
-    sub: "관심 주제일수록 체화 속도가 빨라집니다",
+    key: "topics",
+    title: "본인 업무 영역을 선택해 주세요",
+    sub: "복수 선택 가능 · 해당 분야 표현을 우선 추천합니다",
+    multi: true,
     options: [
-      { value: "비즈니스/IT 트렌드", label: "비즈니스 / IT 트렌드", desc: "제품, 개발, 협업 용어 중심" },
-      { value: "최신 시사 및 뉴스", label: "최신 시사 및 뉴스", desc: "사회·경제 이슈 토론 표현" },
-      { value: "일상 및 오피스 회화", label: "일상 및 오피스 회화", desc: "스몰토크, 요청, 조율 표현" },
+      { value: "IT/소프트웨어", label: "IT / 소프트웨어", desc: "개발, 인프라, QA, DevOps" },
+      { value: "제품/PM", label: "제품 / PM", desc: "기획, 로드맵, 스프린트, 백로그" },
+      { value: "마케팅/세일즈", label: "마케팅 / 세일즈", desc: "리드, 제안, 고객 미팅" },
+      { value: "재무/회계", label: "재무 / 회계", desc: "예산, 결산, IR, 감사" },
+      { value: "HR/채용", label: "HR / 채용", desc: "온보딩, 평가, 채용 인터뷰" },
+      { value: "법무/컴플라이언스", label: "법무 / 컴플라이언스", desc: "계약, 규정, 리스크" },
+      { value: "제조/생산/품질", label: "제조 / 생산 / 품질", desc: "수율, 공정, 불량, 납기" },
+      { value: "의료/바이오", label: "의료 / 바이오", desc: "임상, 규제, R&D" },
+      { value: "금융/투자", label: "금융 / 투자", desc: "리스크, 포트폴리오, 컴플라이언스" },
+      { value: "컨설팅/전략", label: "컨설팅 / 전략", desc: "제안, 분석, 프레젠테이션" },
+      { value: "디자인/크리에이티브", label: "디자인 / 크리에이티브", desc: "브리프, 피드백, UX" },
+      { value: "경영/임원", label: "경영 / 임원", desc: "전략, KPI, 이해관계자 조율" },
     ],
   },
   {
     key: "purpose",
     title: "학습 목적이 무엇인가요?",
-    sub: "훈련 루틴의 우선순위를 정합니다",
+    sub: "가장 가까운 목적을 선택해 주세요",
+    multi: false,
     options: [
-      { value: "미팅/발표 준비", label: "미팅 / 발표 준비", desc: "당장 써먹을 실전 문장 위주" },
-      { value: "출퇴근길 10분 체화", label: "출퇴근길 10분 체화", desc: "듣기·반복 중심 가벼운 루틴" },
-      { value: "발음 및 연음 교정", label: "발음 및 연음 교정", desc: "소리 훈련과 평가 비중 확대" },
+      { value: "해외 미팅·발표", label: "해외 미팅 · 발표", desc: "화상회의, 프레젠, Q&A 대응" },
+      { value: "이메일·문서", label: "이메일 · 문서", desc: "요청, 확인, 팔로업, 보고서" },
+      { value: "출장·해외 거주", label: "출장 · 해외 거주", desc: "현지 커뮤니케이션, 협상" },
+      { value: "승진·이직·면접", label: "승진 · 이직 · 면접", desc: "자기소개, 경력 설명, 역질문" },
+      { value: "시험·자격증", label: "시험 · 자격증", desc: "TOEIC/OPIC, 구조·어휘 정확도" },
+      { value: "출퇴근 10분 루틴", label: "출퇴근 10분 루틴", desc: "듣기·반복 중심 가벼운 학습" },
+      { value: "발음·연음 교정", label: "발음 · 연음 교정", desc: "소리 훈련과 발음 평가 비중 확대" },
     ],
   },
   {
     key: "dailyTime",
     title: "하루에 얼마나 학습할 수 있나요?",
     sub: "추천 문장 개수와 복습량을 조절합니다",
+    multi: false,
     options: [
       { value: "5분 이하", label: "5분 이하", desc: "하루 2문장, 핵심만 압축" },
       { value: "10~15분", label: "10~15분", desc: "하루 3문장, 표준 루틴" },
@@ -53,20 +77,25 @@ const SURVEY_QUESTIONS = [
     ],
   },
   {
-    key: "weakness",
-    title: "가장 어려움을 느끼는 부분은?",
-    sub: "이 영역의 훈련 화면이 먼저 열립니다",
+    key: "weaknesses",
+    title: "어려움을 느끼는 부분은? (복수 선택)",
+    sub: "선택한 영역의 훈련과 해설을 우선 제공합니다",
+    multi: true,
     options: [
-      { value: "듣기", label: "들리지 않아요", desc: "리스닝 반복 훈련이 첫 화면" },
-      { value: "문장 구성", label: "문장이 안 떠올라요", desc: "문법·구조 해설이 자동으로 펼쳐짐" },
-      { value: "발음", label: "발음·억양이 어색해요", desc: "발음 평가 화면이 첫 화면" },
-      { value: "문법", label: "문법이 자꾸 틀려요", desc: "문법 심화 해설 강조" },
+      { value: "듣기", label: "리스닝", desc: "빠른 발화·연음을 잘 못 알아듣겠어요" },
+      { value: "말하기", label: "말하기 속도", desc: "생각보다 입이 느려요" },
+      { value: "발음", label: "발음·억양", desc: "native처럼 안 들려요" },
+      { value: "문장 구성", label: "문장 구성", desc: "말하려면 머릿속에서 한→영 번역" },
+      { value: "문법", label: "문법", desc: "시제·관사·어순이 자꾸 틀려요" },
+      { value: "어휘", label: "어휘력", desc: "적절한 단어가 떠오르지 않아요" },
+      { value: "실전 회화", label: "실전 회화", desc: "실제 상황에서 긴장·막힘" },
     ],
   },
   {
     key: "situation",
     title: "주로 어떤 상황에서 영어를 쓰나요?",
     sub: "롤플레이 시나리오와 예문 톤을 맞춥니다",
+    multi: false,
     options: [
       { value: "외국인 동료와 일상 대화", label: "외국인 동료와 일상 대화", desc: "스몰토크, 점심, 근황" },
       { value: "화상회의 및 발표", label: "화상회의 및 발표", desc: "보고, 논의, 의견 조율" },
@@ -78,6 +107,7 @@ const SURVEY_QUESTIONS = [
     key: "tone",
     title: "어떤 말투를 익히고 싶으세요?",
     sub: "같은 뜻도 톤에 따라 문장이 달라집니다",
+    multi: false,
     options: [
       { value: "정중한 비즈니스", label: "정중한 비즈니스", desc: "Could you / I'd appreciate it if" },
       { value: "중립 실무", label: "중립 실무", desc: "Can you / Let's / I think" },
@@ -86,8 +116,29 @@ const SURVEY_QUESTIONS = [
   },
 ];
 
+const LEVEL_TO_LEGACY = {
+  L1: "왕초보", L2: "왕초보", L3: "왕초보",
+  L4: "기초 회화", L5: "기초 회화",
+  L6: "중상급", L7: "중상급", L8: "중상급", L9: "중상급",
+};
+
+const TOPIC_TO_BANK = {
+  "IT/소프트웨어": "비즈니스/IT 트렌드",
+  "제품/PM": "비즈니스/IT 트렌드",
+  "마케팅/세일즈": "일상 및 오피스 회화",
+  "재무/회계": "비즈니스/IT 트렌드",
+  "HR/채용": "일상 및 오피스 회화",
+  "법무/컴플라이언스": "비즈니스/IT 트렌드",
+  "제조/생산/품질": "비즈니스/IT 트렌드",
+  "의료/바이오": "비즈니스/IT 트렌드",
+  "금융/투자": "최신 시사 및 뉴스",
+  "컨설팅/전략": "비즈니스/IT 트렌드",
+  "디자인/크리에이티브": "일상 및 오피스 회화",
+  "경영/임원": "비즈니스/IT 트렌드",
+};
+
 const TIME_TO_COUNT = { "5분 이하": 2, "10~15분": 3, "30분 이상": 5 };
-const WEAKNESS_TO_TAB = { 듣기: "training", 발음: "scoring", "문장 구성": "main", 문법: "main" };
+const WEAKNESS_TO_TAB = { 듣기: "training", 발음: "scoring", "문장 구성": "main", 문법: "main", 말하기: "scoring", 어휘: "main", "실전 회화": "roleplay" };
 
 /* ============================================================================
    SECTION 2. 문법 개념 라이브러리
@@ -330,7 +381,7 @@ const SENTENCE_BANK = [
     ],
   },
   {
-    id: "s3", level: "왕초보", topic: "최신 시사 및 뉴스", tone: "중립 실무",
+    id: "s3", level: "왕초보", topic: "최신 시사 및 뉴스", tone: "중립 실무", isNews: true,
     situations: ["외국인 동료와 일상 대화"],
     text: "The news said it will rain tomorrow.",
     translation: "뉴스에서 내일 비가 온다고 했어요.",
@@ -422,7 +473,7 @@ const SENTENCE_BANK = [
     ],
   },
   {
-    id: "s7", level: "기초 회화", topic: "최신 시사 및 뉴스", tone: "중립 실무",
+    id: "s7", level: "기초 회화", topic: "최신 시사 및 뉴스", tone: "중립 실무", isNews: true,
     situations: ["외국인 동료와 일상 대화"],
     text: "A lot of people are talking about this issue.",
     translation: "많은 사람들이 이 이슈에 대해 이야기하고 있어요.",
@@ -515,7 +566,7 @@ const SENTENCE_BANK = [
     ],
   },
   {
-    id: "s11", level: "중상급", topic: "최신 시사 및 뉴스", tone: "정중한 비즈니스",
+    id: "s11", level: "중상급", topic: "최신 시사 및 뉴스", tone: "정중한 비즈니스", isNews: true,
     situations: ["이메일 및 문서"],
     text: "Experts warn that the policy could backfire in the long run.",
     translation: "전문가들은 그 정책이 장기적으로 역효과를 낼 수 있다고 경고합니다.",
@@ -853,30 +904,58 @@ async function translateKoreanToEnglish(koText, profile = {}) {
    SECTION 6. 개인화 엔진
    ============================================================================ */
 
-function getRecommendedSentences(profile) {
-  if (!profile) return [];
-  const count = TIME_TO_COUNT[profile.dailyTime] || 3;
-  return SENTENCE_BANK.map((s) => {
-    let score = 0;
-    if (s.level === profile.level) score += 100;
-    else if ((profile.level === "중상급" && s.level === "기초 회화") || (profile.level === "기초 회화" && s.level === "왕초보")) score += 20;
-    else score -= 60;
+function normalizeProfile(answers) {
+  const topics = answers.topics || [];
+  return {
+    ...answers,
+    levelCode: answers.level,
+    level: LEVEL_TO_LEGACY[answers.level] || "기초 회화",
+    topics,
+    topic: topics[0] ? (TOPIC_TO_BANK[topics[0]] || "일상 및 오피스 회화") : "일상 및 오피스 회화",
+    weaknesses: answers.weaknesses || [],
+    weakness: (answers.weaknesses && answers.weaknesses[0]) || "문장 구성",
+  };
+}
 
-    if (s.topic === profile.topic) score += 40;
-    if (s.situations?.includes(profile.situation)) score += 30;
-    if (s.tone === profile.tone) score += 20;
-    if (profile.purpose === "발음 및 연음 교정" && s.sound?.note?.length > 90) score += 15;
-    if (profile.weakness === "문법" && s.grammarKeys.length > 1) score += 15;
-    if (profile.weakness === "문장 구성" && s.grammarKeys.includes("idiomaticExpression")) score -= 10;
-    return { s, score };
-  })
+function getRecommendedSentences(profile, { newsOnly = false, countOverride } = {}) {
+  if (!profile) return [];
+  const count = countOverride ?? (TIME_TO_COUNT[profile.dailyTime] || 3);
+  const legacyLevel = profile.level || LEVEL_TO_LEGACY[profile.levelCode] || "기초 회화";
+  const bankTopics = (profile.topics || []).map((t) => TOPIC_TO_BANK[t]).filter(Boolean);
+  const weaknesses = profile.weaknesses || [profile.weakness].filter(Boolean);
+
+  return SENTENCE_BANK.filter((s) => (newsOnly ? s.isNews : !s.isNews))
+    .map((s) => {
+      let score = 0;
+      if (s.level === legacyLevel) score += 100;
+      else if (legacyLevel === "중상급" && s.level === "기초 회화") score += 30;
+      else if (legacyLevel === "기초 회화" && s.level === "왕초보") score += 30;
+      else score -= 40;
+
+      if (bankTopics.includes(s.topic)) score += 40;
+      if (s.topic === profile.topic) score += 20;
+      if (s.situations?.includes(profile.situation)) score += 30;
+      if (s.tone === profile.tone) score += 20;
+      if (profile.purpose === "발음·연음 교정" && s.sound?.note?.length > 90) score += 15;
+      if (weaknesses.includes("문법") && s.grammarKeys.length > 1) score += 15;
+      if (weaknesses.includes("듣기") && s.sound) score += 12;
+      if (weaknesses.includes("어휘") && s.vocab?.length >= 2) score += 10;
+      return { s, score };
+    })
     .sort((a, b) => b.score - a.score)
     .slice(0, count)
     .map((x) => x.s);
 }
 
+function getNewsSentences(profile) {
+  return getRecommendedSentences(profile, { newsOnly: true, countOverride: 3 });
+}
+
 function describeProfile(p) {
-  return p ? `${p.level} · ${p.topic} · ${p.tone} · 하루 ${p.dailyTime}` : "";
+  if (!p) return "";
+  const topics = (p.topics || []).slice(0, 2).join(" · ") || p.topic;
+  const weak = (p.weaknesses || [p.weakness]).filter(Boolean).slice(0, 2).join(", ");
+  return `${p.levelCode || p.level} · ${topics} · ${p.tone} · ${weak}`;
 }
 
 function findPastGrammarCases(key, history, currentId) {
@@ -958,6 +1037,25 @@ function Onboarding({ onComplete }) {
   const q = SURVEY_QUESTIONS[step];
   const value = answers[q.key];
 
+  const isSelected = (optValue) => {
+    if (q.multi) return Array.isArray(value) && value.includes(optValue);
+    return value === optValue;
+  };
+
+  const toggleOption = (optValue) => {
+    if (q.multi) {
+      setAnswers((a) => {
+        const prev = Array.isArray(a[q.key]) ? a[q.key] : [];
+        const next = prev.includes(optValue) ? prev.filter((v) => v !== optValue) : [...prev, optValue];
+        return { ...a, [q.key]: next };
+      });
+    } else {
+      setAnswers((a) => ({ ...a, [q.key]: optValue }));
+    }
+  };
+
+  const canNext = q.multi ? Array.isArray(value) && value.length > 0 : !!value;
+
   return (
     <div className="min-h-screen flex flex-col justify-between p-6">
       <div>
@@ -969,14 +1067,14 @@ function Onboarding({ onComplete }) {
         <p className="text-[11px] font-bold text-indigo-500 mb-1">STEP {step + 1} / {SURVEY_QUESTIONS.length}</p>
         <h2 className="text-xl font-bold text-gray-900 mb-1 leading-snug">{q.title}</h2>
         <p className="text-sm text-gray-500 mb-6">{q.sub}</p>
-        <div className="flex flex-col gap-2.5">
+        <div className={`flex flex-col gap-2.5 ${q.multi && q.options.length > 6 ? "max-h-[52vh] overflow-y-auto pr-1" : ""}`}>
           {q.options.map((opt) => (
             <button
               key={opt.value}
-              onClick={() => setAnswers((a) => ({ ...a, [q.key]: opt.value }))}
-              className={`text-left px-4 py-3 rounded-2xl border-2 transition ${value === opt.value ? "border-indigo-600 bg-indigo-50" : "border-gray-100 bg-gray-50"}`}
+              onClick={() => toggleOption(opt.value)}
+              className={`text-left px-4 py-3 rounded-2xl border-2 transition ${isSelected(opt.value) ? "border-indigo-600 bg-indigo-50" : "border-gray-100 bg-gray-50"}`}
             >
-              <p className={`text-sm font-semibold ${value === opt.value ? "text-indigo-700" : "text-gray-800"}`}>{opt.label}</p>
+              <p className={`text-sm font-semibold ${isSelected(opt.value) ? "text-indigo-700" : "text-gray-800"}`}>{opt.label}</p>
               <p className="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
             </button>
           ))}
@@ -985,9 +1083,9 @@ function Onboarding({ onComplete }) {
       <div className="flex gap-2.5 mt-8">
         {step > 0 && <button onClick={() => setStep((s) => s - 1)} className="px-5 py-3.5 rounded-2xl bg-gray-100 text-gray-600 text-sm font-semibold">이전</button>}
         <button
-          disabled={!value}
-          onClick={() => (step < SURVEY_QUESTIONS.length - 1 ? setStep((s) => s + 1) : onComplete(answers))}
-          className={`flex-1 py-3.5 rounded-2xl text-sm font-semibold ${value ? "bg-indigo-600 text-white" : "bg-gray-200 text-gray-400"}`}
+          disabled={!canNext}
+          onClick={() => (step < SURVEY_QUESTIONS.length - 1 ? setStep((s) => s + 1) : onComplete(normalizeProfile(answers)))}
+          className={`flex-1 py-3.5 rounded-2xl text-sm font-semibold ${canNext ? "bg-indigo-600 text-white" : "bg-gray-200 text-gray-400"}`}
         >
           {step < SURVEY_QUESTIONS.length - 1 ? "다음" : "내 학습 환경 만들기"}
         </button>
@@ -1531,7 +1629,123 @@ function RoleplayTab({ savedSentences, profile }) {
    SECTION 14. 메인 탭 (텍스트 + 음성 입력 + 한글 영작)
    ============================================================================ */
 
-function ComposerBox({ profile, onStart }) {
+function analyzeUserWriting(text, profile, mode = "diary") {
+  const raw = (text || "").trim();
+  if (!raw) return null;
+  const isKo = containsKorean(raw);
+  const words = raw.replace(/[^\w\s']/g, " ").split(/\s+/).filter(Boolean);
+  const hasSubject = /\b(I|We|They|He|She|It|My|The|Our)\b/i.test(raw);
+  const hasVerb = /\b(is|are|was|were|have|has|had|do|did|will|can|could|learned|worked|discussed|met|finished|think|feel)\b/i.test(raw);
+  const tips = [];
+  if (!hasSubject && !isKo) tips.push("문장 시작에 I / We / The 등 주어를 명확히 두면 더 자연스럽습니다.");
+  if (!hasVerb && !isKo) tips.push("동사(learned, discussed, finished 등)가 있어야 완전한 문장이 됩니다.");
+  if (isKo) tips.push("한글로 쓰셨네요. 아래 영어 제안을 참고해 다시 써 보세요.");
+  if ((profile.weaknesses || []).includes("문법")) tips.push("시제를 하루 전체로 통일했는지 확인해 보세요.");
+
+  let corrected = raw;
+  let natural = raw;
+  if (isKo) {
+    corrected = mode === "diary"
+      ? "Today I practiced the sentences I learned and discussed key updates with my team."
+      : "I would like to reschedule our meeting to Thursday afternoon.";
+    natural = "Wrapped up today by using the phrases I studied — felt more natural than yesterday.";
+  } else {
+    corrected = raw.replace(/\bi\b/g, "I").replace(/\s+/g, " ").trim();
+    if (!/[.!?]$/.test(corrected)) corrected += ".";
+    natural = corrected.replace(/I think that /i, "I think ").replace(/very very/i, "really");
+  }
+
+  return {
+    original: raw,
+    corrected,
+    natural,
+    structure: hasSubject && hasVerb
+      ? "S + V (+ O/Adv) — 기본 문장 구조를 갖추고 있습니다."
+      : "주어 + 동사 + (목적어/부사) 순서로 완성해 보세요.",
+    tips,
+    keywordsUsed: words.filter((w) => w.length > 3).slice(0, 5),
+  };
+}
+
+function WritingPractice({ profile, mode, savedSentences, onClose }) {
+  const [text, setText] = useState("");
+  const [listening, setListening] = useState(false);
+  const [feedback, setFeedback] = useState(null);
+  const recRef = useRef(null);
+  const sttOk = isSTTSupported();
+  const prompt = mode === "diary"
+    ? "오늘 배운 문장을 활용해 영어 일기를 3~5문장 써 보세요."
+    : "배운 표현을 써서 업무 상황 문장을 만들어 보세요.";
+  const hint = savedSentences.length
+    ? `힌트: ${savedSentences.slice(-2).map((s) => s.text).join(" / ")}`
+    : "먼저 문장을 학습·저장하면 힌트가 표시됩니다.";
+
+  const toggleMic = () => {
+    if (listening) { recRef.current?.stop(); setListening(false); return; }
+    const rec = createRecognizer("en-US");
+    if (!rec) return;
+    recRef.current = rec;
+    rec.onresult = (e) => setText(Array.from(e.results).map((r) => r[0].transcript).join(" "));
+    rec.onend = () => setListening(false);
+    rec.start();
+    setListening(true);
+  };
+
+  const submit = () => {
+    const fb = analyzeUserWriting(text, profile, mode);
+    setFeedback(fb);
+  };
+
+  return (
+    <div className="mt-4 bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+      <div className="flex justify-between items-start mb-2">
+        <div>
+          <p className="text-sm font-bold text-gray-900">{mode === "diary" ? "오늘의 일기 쓰기" : "문장 만들어 보기"}</p>
+          <p className="text-xs text-gray-500 mt-0.5">{prompt}</p>
+        </div>
+        <button onClick={onClose} className="text-gray-400"><X size={16} /></button>
+      </div>
+      <p className="text-[10px] text-indigo-600 bg-indigo-50 rounded-lg px-2 py-1 mb-2">{hint}</p>
+      <textarea
+        value={text}
+        onChange={(e) => { setText(e.target.value); setFeedback(null); }}
+        rows={4}
+        placeholder="Type or speak in English..."
+        className="w-full rounded-xl bg-gray-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+      />
+      <div className="flex gap-2 mt-2">
+        {sttOk && (
+          <button onClick={toggleMic} className={`px-3 py-2 rounded-xl text-sm font-semibold flex items-center gap-1 ${listening ? "bg-rose-500 text-white" : "bg-gray-100 text-gray-600"}`}>
+            <Mic size={14} /> {listening ? "녹음 중" : "음성 입력"}
+          </button>
+        )}
+        <button onClick={submit} disabled={!text.trim()} className="flex-1 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold disabled:opacity-50">피드백 받기</button>
+      </div>
+      {feedback && (
+        <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+          <div className="bg-gray-50 rounded-xl p-3">
+            <p className="text-[10px] font-bold text-gray-400 mb-1">교정 문장</p>
+            <p className="text-sm font-semibold text-gray-900">{feedback.corrected}</p>
+            <SpeakButton text={feedback.corrected} size={14} />
+          </div>
+          <div className="bg-emerald-50 rounded-xl p-3">
+            <p className="text-[10px] font-bold text-emerald-600 mb-1">더 자연스러운 표현</p>
+            <p className="text-sm text-gray-800">{feedback.natural}</p>
+          </div>
+          <div className="bg-indigo-50 rounded-xl p-3">
+            <p className="text-[10px] font-bold text-indigo-600 mb-1">구조</p>
+            <p className="text-xs text-indigo-900">{feedback.structure}</p>
+          </div>
+          {feedback.tips.map((t, i) => (
+            <p key={i} className="text-xs text-gray-600">· {t}</p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ComposerBox({ profile, onStart, minimal = false }) {
   const [text, setText] = useState("");
   const [listening, setListening] = useState(false);
   const [translating, setTranslating] = useState(false);
@@ -1563,11 +1777,13 @@ function ComposerBox({ profile, onStart }) {
   };
 
   return (
-    <div className="mt-4">
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-bold text-gray-400">오늘 직접 써보고 싶은 문장</p>
-        <span className="text-[10px] text-gray-400">한글로 써도 뉘앙스를 살려 영작해 드려요</span>
-      </div>
+    <div className={minimal ? "mt-2" : "mt-4"}>
+      {!minimal && (
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-bold text-gray-400">오늘 직접 써보고 싶은 문장</p>
+          <span className="text-[10px] text-gray-400">한글로 써도 뉘앙스를 살려 영작해 드려요</span>
+        </div>
+      )}
 
       <div className="flex gap-2">
         <div className="flex-1 relative">
@@ -1575,7 +1791,7 @@ function ComposerBox({ profile, onStart }) {
             value={text}
             onChange={(e) => { setText(e.target.value); setResult(null); }}
             onKeyDown={(e) => e.key === "Enter" && handleGo()}
-            placeholder={listening ? "듣고 있어요..." : "예: 회의 일정 좀 조정하고 싶은데요"}
+            placeholder={listening ? "듣고 있어요..." : minimal ? "궁금한 문장을 입력하세요 (한글 OK)" : "예: 회의 일정 좀 조정하고 싶은데요"}
             className="w-full pl-3.5 pr-11 py-3 rounded-xl bg-gray-100 text-sm outline-none focus:ring-2 focus:ring-indigo-300"
           />
           {sttOk && (
@@ -1631,38 +1847,62 @@ function ComposerBox({ profile, onStart }) {
   );
 }
 
-function MainTab({ profile, activeSentence, setActiveSentence, history, onSaveWord, onSaveSentence, savedIds, onStartCustom }) {
+function SentenceList({ sentences, activeId, onSelect, badge }) {
+  if (!sentences.length) return <p className="text-xs text-gray-400 text-center py-6">표시할 문장이 없어요.</p>;
+  return (
+    <div className="space-y-2">
+      {sentences.map((s) => (
+        <button key={s.id} onClick={() => onSelect(s)} className={`w-full text-left p-3 rounded-xl border-2 ${activeId === s.id ? "border-indigo-600 bg-indigo-50" : "border-gray-100 bg-white"}`}>
+          {badge && <span className="text-[9px] text-indigo-500 font-bold">{badge}</span>}
+          <p className="text-sm font-semibold text-gray-900">{s.text}</p>
+          <p className="text-xs text-gray-500 mt-0.5">{s.translation}</p>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function MainTab({ profile, activeSentence, setActiveSentence, history, onSaveWord, onSaveSentence, savedIds, onStartCustom, savedSentences }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuMode, setMenuMode] = useState(null);
   const recommended = useMemo(() => getRecommendedSentences(profile), [profile]);
-  const autoOpen = profile.weakness === "문법" || profile.weakness === "문장 구성";
+  const newsSentences = useMemo(() => getNewsSentences(profile), [profile]);
+  const weaknesses = profile.weaknesses || [profile.weakness].filter(Boolean);
+  const autoOpen = weaknesses.includes("문법") || weaknesses.includes("문장 구성");
+  const openMenu = (mode) => { setMenuMode(mode); setMenuOpen(true); };
 
   return (
     <div className="px-4 pb-6">
-      <div className="mt-3 bg-indigo-50 rounded-xl px-3.5 py-2.5">
-        <p className="text-[11px] text-indigo-700 font-medium">{describeProfile(profile)}</p>
-        <p className="text-[10px] text-indigo-400 mt-0.5">약점 「{profile.weakness}」 중심으로 화면이 구성됐어요</p>
+      <div className="pt-10 pb-6 text-center">
+        <div className="inline-flex items-center justify-center w-[72px] h-[72px] rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white text-3xl font-black shadow-xl shadow-indigo-200/60 mb-4">H</div>
+        <h2 className="text-[26px] font-black text-gray-900 tracking-tight">Hook English</h2>
       </div>
-
-      <ComposerBox profile={profile} onStart={onStartCustom} />
-
-      <div className="mt-6">
-        <p className="text-xs font-bold text-gray-400 mb-2">오늘의 추천 {recommended.length}문장 · {profile.dailyTime} 기준</p>
-        <div className="space-y-2.5">
-          {recommended.map((s) => (
-            <button key={s.id} onClick={() => setActiveSentence(s)} className={`w-full text-left p-3.5 rounded-2xl border-2 ${activeSentence?.id === s.id ? "border-indigo-600 bg-indigo-50" : "border-gray-100 bg-white"}`}>
-              <p className="text-sm font-semibold text-gray-900">{s.text}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{s.translation}</p>
-              <div className="flex gap-1 mt-1.5 flex-wrap">
-                {s.grammarKeys.slice(0, 2).map((k) => (
-                  <span key={k} className="text-[9px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{GRAMMAR_LIBRARY[k]?.label}</span>
-                ))}
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
+      <ComposerBox profile={profile} onStart={onStartCustom} minimal />
+      <button type="button" onClick={() => setMenuOpen((o) => !o)} className="w-full mt-5 py-2.5 text-xs text-indigo-600 font-bold flex items-center justify-center gap-1">
+        {menuOpen ? <><ChevronUp size={14} /> 학습 메뉴 접기</> : <>학습 메뉴 보기 <ChevronDown size={14} /></>}
+      </button>
+      {menuOpen && (
+        <>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <button onClick={() => openMenu("recommended")} className="p-3 rounded-2xl bg-indigo-50 border border-indigo-100 text-left"><Sparkles size={16} className="text-indigo-600 mb-1" /><p className="text-xs font-bold text-indigo-800">오늘의 추천 3문장</p></button>
+            <button onClick={() => openMenu("news")} className="p-3 rounded-2xl bg-rose-50 border border-rose-100 text-left"><Newspaper size={16} className="text-rose-600 mb-1" /><p className="text-xs font-bold text-rose-800">최신 뉴스 3문장</p></button>
+            <button onClick={() => openMenu("diary")} className="p-3 rounded-2xl bg-amber-50 border border-amber-100 text-left"><PenLine size={16} className="text-amber-600 mb-1" /><p className="text-xs font-bold text-amber-800">오늘의 일기 쓰기</p></button>
+            <button onClick={() => openMenu("compose")} className="p-3 rounded-2xl bg-emerald-50 border border-emerald-100 text-left"><Notebook size={16} className="text-emerald-600 mb-1" /><p className="text-xs font-bold text-emerald-800">문장 만들어 보기</p></button>
+          </div>
+          {menuMode === "recommended" && <div className="mt-4"><p className="text-xs font-bold text-gray-400 mb-2">맞춤 추천 {recommended.length}문장</p><SentenceList sentences={recommended} activeId={activeSentence?.id} onSelect={setActiveSentence} /></div>}
+          {menuMode === "news" && <div className="mt-4"><p className="text-xs font-bold text-gray-400 mb-2">최신 뉴스 기반 3문장</p><SentenceList sentences={newsSentences} activeId={activeSentence?.id} onSelect={setActiveSentence} badge="NEWS" /></div>}
+          {(menuMode === "diary" || menuMode === "compose") && <WritingPractice profile={profile} mode={menuMode} savedSentences={savedSentences} onClose={() => setMenuMode(null)} />}
+        </>
+      )}
 
       {activeSentence && (
         <div className="mt-6 bg-white border border-gray-100 rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-bold text-gray-400">학습 중인 문장</p>
+            {history.some((h) => h.sentenceId === activeSentence.id) && (
+              <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">이전 학습</span>
+            )}
+          </div>
           <div className="flex justify-between items-start gap-2">
             <div>
               <p className="text-lg font-bold text-gray-900 leading-snug">{activeSentence.text}</p>
@@ -1689,26 +1929,52 @@ function MainTab({ profile, activeSentence, setActiveSentence, history, onSaveWo
    SECTION 15. 저장소 / 음성 설정 모달
    ============================================================================ */
 
-function StoreModal({ title, items, onClose, onMaster }) {
-  return (
-    <BottomSheet title={title} onClose={onClose}>
-      {items.length === 0 && <p className="text-sm text-gray-400 text-center py-10">아직 저장된 항목이 없어요.</p>}
-      <div className="space-y-2">
-        {items.map((it) => (
-          <div key={it.id} className="flex items-center justify-between bg-gray-50 rounded-xl px-3.5 py-3">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-900 truncate">{it.text}</p>
-              {it.meaning && <p className="text-xs text-gray-500 truncate">{it.meaning}</p>}
-            </div>
-            <div className="flex items-center gap-2 shrink-0 ml-2">
-              <SpeakButton text={it.text} size={15} />
-              {it.mastered
-                ? <span className="flex items-center gap-1 text-emerald-600 text-xs font-bold"><Check size={14} /> 마스터</span>
-                : <button onClick={() => onMaster(it.id)} className="text-[11px] text-gray-400 border border-gray-200 rounded-full px-2 py-1">마스터 완료</button>}
-            </div>
-          </div>
-        ))}
+function NotebookModal({ sentences, words, history, onClose, onMaster, onSelectSentence }) {
+  const total = sentences.length + words.length;
+  const mastered = [...sentences, ...words].filter((i) => i.mastered).length;
+  const studiedIds = new Set(history.map((h) => h.sentenceId));
+
+  const renderEntry = (it, type) => {
+    const prev = type === "sentence" && studiedIds.has(it.sourceId);
+    return (
+      <div key={it.id} className="relative bg-[#fffef8] border border-amber-200/80 rounded-lg px-4 py-3 shadow-sm" style={{ backgroundImage: "repeating-linear-gradient(transparent, transparent 27px, #f3f4f6 28px)" }}>
+        {prev && <span className="absolute top-2 right-2 text-[9px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold">이전 학습</span>}
+        <p className="text-sm font-semibold text-gray-900 leading-relaxed">{it.text}</p>
+        {it.meaning && <p className="text-xs text-gray-500 mt-1">{it.meaning}</p>}
+        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-amber-100/80">
+          <SpeakButton text={it.text} size={14} />
+          {type === "sentence" && (
+            <button onClick={() => onSelectSentence(it)} className="text-[10px] text-indigo-600 font-bold">복습하기</button>
+          )}
+          {!it.mastered ? (
+            <button onClick={() => onMaster(it.id)} className="ml-auto text-[10px] text-gray-500 border border-gray-200 rounded-full px-2 py-0.5">암기 완료</button>
+          ) : (
+            <span className="ml-auto text-[10px] text-emerald-600 font-bold flex items-center gap-0.5"><Check size={12} /> 완료</span>
+          )}
+        </div>
       </div>
+    );
+  };
+
+  return (
+    <BottomSheet title="나의 영어 수첩" onClose={onClose}>
+      <div className="bg-indigo-50 rounded-xl p-3 mb-4 flex justify-between items-center">
+        <div>
+          <p className="text-xs font-bold text-indigo-800">총 {total}개 · 암기 {mastered}개</p>
+          <p className="text-[10px] text-indigo-500 mt-0.5">언제든지 배운 내용을 복습하세요</p>
+        </div>
+        <Notebook size={22} className="text-indigo-400" />
+      </div>
+
+      <p className="text-xs font-bold text-gray-400 mb-2">저장한 문장 ({sentences.length})</p>
+      {sentences.length === 0 ? <p className="text-xs text-gray-400 mb-4">아직 저장한 문장이 없어요.</p> : (
+        <div className="space-y-3 mb-5">{sentences.map((s) => renderEntry(s, "sentence"))}</div>
+      )}
+
+      <p className="text-xs font-bold text-gray-400 mb-2">저장한 단어 ({words.length})</p>
+      {words.length === 0 ? <p className="text-xs text-gray-400">아직 저장한 단어가 없어요.</p> : (
+        <div className="space-y-3">{words.map((w) => renderEntry(w, "word"))}</div>
+      )}
     </BottomSheet>
   );
 }
@@ -1796,7 +2062,8 @@ export default function App() {
     if (savedIds.has(s.id)) return;
     addItem({ type: "sentence", text: s.text, meaning: s.translation, sourceId: s.id });
     setToast("내 문장고에 저장되었습니다");
-    const target = WEAKNESS_TO_TAB[profile.weakness];
+    const weaknesses = profile.weaknesses || [profile.weakness].filter(Boolean);
+    const target = WEAKNESS_TO_TAB[weaknesses[0]] || "main";
     setTab(target === "main" ? "training" : target);
   };
 
@@ -1833,12 +2100,29 @@ export default function App() {
     setToast("입력한 문장으로 학습을 시작합니다");
   };
 
+  const handleReviewFromNotebook = (item) => {
+    const found = SENTENCE_BANK.find((s) => s.id === item.sourceId);
+    if (found) setActiveSentence(found);
+    else {
+      setActiveSentence({
+        id: item.sourceId || item.id,
+        text: item.text,
+        translation: item.meaning || "",
+        grammarKeys: ["phrasalVerb"],
+        vocab: [],
+        nativeAlternatives: [],
+      });
+    }
+    setModal(null);
+    setTab("main");
+  };
+
   const markMastered = (id) => setStore((p) => ({ ...p, items: p.items.map((i) => (i.id === id ? { ...i, mastered: true } : i)) }));
 
   if (!profile) {
     return (
       <div className="max-w-[400px] mx-auto min-h-screen bg-white shadow-xl">
-        <Onboarding onComplete={(a) => { setProfile(a); setTab("main"); }} />
+        <Onboarding onComplete={(a) => { setProfile(normalizeProfile(a)); setTab("main"); }} />
       </div>
     );
   }
@@ -1848,14 +2132,11 @@ export default function App() {
   return (
     <div className="max-w-[400px] mx-auto min-h-screen bg-white shadow-xl flex flex-col relative">
       <div className="flex items-center justify-between px-4 py-3 sticky top-0 bg-white/95 backdrop-blur z-20 border-b border-gray-100">
-        <h1 className="font-bold text-[17px] text-gray-900">영어 트레이닝</h1>
+        <h1 className="font-bold text-[17px] text-gray-900">Hook English</h1>
         <div className="flex items-center gap-1">
           <button onClick={() => setModal("voice")} className="p-1.5 text-gray-500"><Settings size={18} /></button>
-          <button onClick={() => setModal("sentences")} className="relative p-1.5 text-gray-500">
-            <Star size={19} />{savedSentences.length > 0 && <Badge n={savedSentences.length} />}
-          </button>
-          <button onClick={() => setModal("vocab")} className="relative p-1.5 text-gray-500">
-            <BookOpen size={19} />{savedWords.length > 0 && <Badge n={savedWords.length} />}
+          <button onClick={() => setModal("notebook")} className="relative p-1.5 text-gray-500">
+            <Notebook size={19} />{(savedSentences.length + savedWords.length) > 0 && <Badge n={savedSentences.length + savedWords.length} />}
           </button>
         </div>
       </div>
@@ -1865,7 +2146,7 @@ export default function App() {
           <MainTab
             profile={profile} activeSentence={activeSentence} setActiveSentence={setActiveSentence}
             history={history} onSaveWord={handleSaveWord} onSaveSentence={handleSaveSentence}
-            savedIds={savedIds} onStartCustom={handleStartCustom}
+            savedIds={savedIds} onStartCustom={handleStartCustom} savedSentences={savedSentences}
           />
         )}
         {tab === "training" && (activeSentence ? <TrainingTab sentence={activeSentence} voice={voice} /> : needSentence)}
@@ -1890,8 +2171,16 @@ export default function App() {
         })}
       </div>
 
-      {modal === "sentences" && <StoreModal title="내 문장고" items={savedSentences} onClose={() => setModal(null)} onMaster={markMastered} />}
-      {modal === "vocab" && <StoreModal title="내 단어장" items={savedWords} onClose={() => setModal(null)} onMaster={markMastered} />}
+      {modal === "notebook" && (
+        <NotebookModal
+          sentences={savedSentences}
+          words={savedWords}
+          history={history}
+          onClose={() => setModal(null)}
+          onMaster={markMastered}
+          onSelectSentence={handleReviewFromNotebook}
+        />
+      )}
       {modal === "voice" && <VoiceSettings voices={voices} selected={voice} onSelect={setVoice} onClose={() => setModal(null)} />}
 
       <Toast message={toast} />
