@@ -20,6 +20,9 @@
         "backgroundColor": "#1e3a8a"
       }
     },
-    "plugins": ["expo-router"]
+    "plugins": [
+      "expo-router",
+      "expo-asset"
+    ]
   }
 }

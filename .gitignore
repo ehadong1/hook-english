@@ -11,6 +11,15 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
+venv/
+.venv/
+
+# Expo
+hook-english/.expo/
+hook-english/expo-env.d.ts
 
 # Editor directories and files
 .vscode/*
