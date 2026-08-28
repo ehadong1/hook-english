@@ -1847,53 +1847,27 @@ function ComposerBox({ profile, onStart, minimal = false }) {
   );
 }
 
-function HookK({ className, gradientId }) {
-  const stroke = `url(#${gradientId})`;
-  return (
-    <svg viewBox="0 0 38 58" className={className} fill="none" aria-hidden="true">
-      <defs>
-        <linearGradient id={gradientId} x1="6" y1="2" x2="34" y2="56" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#4f46e5" />
-          <stop offset="0.55" stopColor="#6366f1" />
-          <stop offset="1" stopColor="#7c3aed" />
-        </linearGradient>
-      </defs>
-      {/* 세로 획 */}
-      <path d="M10 4v50" stroke={stroke} strokeWidth="6" strokeLinecap="round" />
-      {/* 위쪽 대각선 — 끝이 후크 선장 후크처럼 살짝 말림 */}
-      <path
-        d="M10 27 19 11Q28 3 25 11"
-        stroke={stroke}
-        strokeWidth="6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* 아래쪽 대각선 — 일반 k 획 */}
-      <path d="M10 27 24 50" stroke={stroke} strokeWidth="6" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 function HookWordmark({ size = "md", showSubtitle = true }) {
-  const gradId = React.useId().replace(/:/g, "");
   const cfg = {
-    sm: { text: "text-[17px]", k: "h-[22px] w-[14px]", sub: "text-[8px] tracking-[0.28em]", gap: "-ml-px mb-px", sway: false },
-    hero: { text: "text-[44px]", k: "h-[52px] w-[32px]", sub: "text-[11px] tracking-[0.42em]", gap: "-ml-1 mb-1", sway: true },
-  }[size] || { text: "text-3xl", k: "h-10 w-7", sub: "text-xs tracking-[0.35em]", gap: "-ml-0.5 mb-0.5", sway: false };
+    sm: { text: "text-[18px]", sub: "text-[9px] tracking-[0.3em]" },
+    hero: { text: "text-[48px]", sub: "text-[20px] tracking-[0.28em]" },
+  }[size] || { text: "text-3xl", sub: "text-sm tracking-[0.28em]" };
 
   return (
     <div className="inline-flex flex-col items-center select-none">
-      <div className="flex items-end justify-center leading-none">
-        <span className={`${cfg.text} font-black tracking-[-0.04em] bg-gradient-to-br from-indigo-600 via-indigo-500 to-violet-600 bg-clip-text text-transparent`}>
-          Hoo
-        </span>
-        <HookK
-          className={`${cfg.k} ${cfg.gap} drop-shadow-sm${cfg.sway ? " animate-[hook-sway_3s_ease-in-out_infinite]" : ""}`}
-          gradientId={gradId}
-        />
-      </div>
+      <span
+        className={`${cfg.text} font-bold tracking-[-0.03em] text-[#0f2744] leading-none`}
+        style={{ fontFamily: "var(--font-display)" }}
+      >
+        Hook
+      </span>
       {showSubtitle && (
-        <span className={`${cfg.sub} font-bold text-gray-400 uppercase mt-1.5`}>English</span>
+        <span
+          className={`${cfg.sub} font-extrabold text-[#3d5168] uppercase mt-2.5`}
+          style={{ fontFamily: "var(--font-ui)" }}
+        >
+          English
+        </span>
       )}
     </div>
   );
@@ -1925,7 +1899,7 @@ function MainTab({ profile, activeSentence, setActiveSentence, history, onSaveWo
 
   return (
     <div className="px-4 pb-6">
-      <div className="pt-10 pb-6 text-center">
+      <div className="pt-10 pb-7 text-center rounded-2xl bg-gradient-to-b from-[#f4f7fb] via-white to-white border border-[#e4ebf3] mb-1">
         <HookWordmark size="hero" />
       </div>
       <ComposerBox profile={profile} onStart={onStartCustom} minimal />
