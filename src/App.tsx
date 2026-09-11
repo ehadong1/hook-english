@@ -6,6 +6,16 @@ import {
   Send, Info, Settings, Languages, Loader2, AudioLines, Newspaper,
   PenLine, Notebook, ChevronUp,
 } from "lucide-react";
+import { getDeviceId } from "./lib/deviceId";
+import { isSupabaseConfigured } from "./lib/supabaseClient";
+import {
+  fetchRemoteState,
+  saveProfileRemote,
+  insertItemRemote,
+  updateItemRemote,
+  insertHistoryRemote,
+} from "./lib/persistence";
+import { callLlmTranslate, callLlmWritingFeedback } from "./lib/llmProvider";
 
 /* ============================================================================
    SECTION 1. 온보딩 정밀 서베이 설정 (7문항)
@@ -732,6 +742,17 @@ function createRecognizer(lang = "ko-KR") {
 
 let llmProvider = null;
 export function setTranslationProvider(fn) { llmProvider = fn; }
+
+let writingFeedbackProvider = null;
+export function setWritingFeedbackProvider(fn) { writingFeedbackProvider = fn; }
+
+// Supabase가 설정되어 있으면(.env의 VITE_SUPABASE_URL/ANON_KEY) 실제 GPT-4o-mini
+// 연결(Supabase Edge Functions "translate", "writing-feedback")을 기본 제공자로 사용합니다.
+// 설정되어 있지 않으면 각 provider가 null로 남아 아래 로컬 패턴/폴백 로직만 사용됩니다.
+if (isSupabaseConfigured) {
+  setTranslationProvider(callLlmTranslate);
+  setWritingFeedbackProvider(callLlmWritingFeedback);
+}
 
 function containsKorean(t) { return /[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(t); }
 
@@ -1484,19 +1505,29 @@ function ScoringTab({ sentence, profile, voice }) {
    SECTION 12. 복습 (에빙하우스)
    ============================================================================ */
 
-function ReviewTab({ store, setStore, virtualNow, advanceDay }) {
+function ReviewTab({ store, setStore, virtualNow, advanceDay, deviceId }) {
   const due = store.items.filter((i) => !i.mastered && new Date(i.nextReviewAt) <= virtualNow);
   const upcoming = store.items.filter((i) => !i.mastered && new Date(i.nextReviewAt) > virtualNow);
 
-  const again = (id) => setStore((p) => ({
-    ...p,
-    items: p.items.map((it) => {
-      if (it.id !== id) return it;
-      const ns = Math.min(it.stage + 1, REVIEW_INTERVALS_DAYS.length - 1);
-      return { ...it, stage: ns, nextReviewAt: addDays(virtualNow, REVIEW_INTERVALS_DAYS[ns]).toISOString() };
-    }),
-  }));
-  const master = (id) => setStore((p) => ({ ...p, items: p.items.map((it) => (it.id === id ? { ...it, mastered: true } : it)) }));
+  const again = (id) => {
+    let nextReviewAt = null;
+    let stage = 0;
+    setStore((p) => ({
+      ...p,
+      items: p.items.map((it) => {
+        if (it.id !== id) return it;
+        const ns = Math.min(it.stage + 1, REVIEW_INTERVALS_DAYS.length - 1);
+        stage = ns;
+        nextReviewAt = addDays(virtualNow, REVIEW_INTERVALS_DAYS[ns]).toISOString();
+        return { ...it, stage: ns, nextReviewAt };
+      }),
+    }));
+    if (nextReviewAt) updateItemRemote(deviceId, id, { stage, nextReviewAt });
+  };
+  const master = (id) => {
+    setStore((p) => ({ ...p, items: p.items.map((it) => (it.id === id ? { ...it, mastered: true } : it)) }));
+    updateItemRemote(deviceId, id, { mastered: true });
+  };
 
   return (
     <div className="px-4 pb-6">
@@ -1629,9 +1660,19 @@ function RoleplayTab({ savedSentences, profile }) {
    SECTION 14. 메인 탭 (텍스트 + 음성 입력 + 한글 영작)
    ============================================================================ */
 
-function analyzeUserWriting(text, profile, mode = "diary") {
+async function analyzeUserWriting(text, profile, mode = "diary") {
   const raw = (text || "").trim();
   if (!raw) return null;
+
+  if (writingFeedbackProvider) {
+    try {
+      const r = await writingFeedbackProvider(raw, profile, mode);
+      return { original: raw, ...r, confidence: "high", source: "llm" };
+    } catch {
+      /* 폴백 */
+    }
+  }
+
   const isKo = containsKorean(raw);
   const words = raw.replace(/[^\w\s']/g, " ").split(/\s+/).filter(Boolean);
   const hasSubject = /\b(I|We|They|He|She|It|My|The|Our)\b/i.test(raw);
@@ -1671,6 +1712,7 @@ function WritingPractice({ profile, mode, savedSentences, onClose }) {
   const [text, setText] = useState("");
   const [listening, setListening] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [analyzing, setAnalyzing] = useState(false);
   const recRef = useRef(null);
   const sttOk = isSTTSupported();
   const prompt = mode === "diary"
@@ -1691,8 +1733,10 @@ function WritingPractice({ profile, mode, savedSentences, onClose }) {
     setListening(true);
   };
 
-  const submit = () => {
-    const fb = analyzeUserWriting(text, profile, mode);
+  const submit = async () => {
+    setAnalyzing(true);
+    const fb = await analyzeUserWriting(text, profile, mode);
+    setAnalyzing(false);
     setFeedback(fb);
   };
 
@@ -1719,7 +1763,9 @@ function WritingPractice({ profile, mode, savedSentences, onClose }) {
             <Mic size={14} /> {listening ? "녹음 중" : "음성 입력"}
           </button>
         )}
-        <button onClick={submit} disabled={!text.trim()} className="flex-1 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold disabled:opacity-50">피드백 받기</button>
+        <button onClick={submit} disabled={!text.trim() || analyzing} className="flex-1 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5">
+          {analyzing ? <><Loader2 size={14} className="animate-spin" /> 분석 중...</> : "피드백 받기"}
+        </button>
       </div>
       {feedback && (
         <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
@@ -1838,7 +1884,7 @@ function ComposerBox({ profile, onStart, minimal = false }) {
             </div>
           )}
 
-          <button onClick={() => onStart(result.english, text.trim())} className="w-full mt-3 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold">
+          <button onClick={() => onStart(result.english, text.trim(), result)} className="w-full mt-3 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold">
             이 문장으로 학습 시작
           </button>
         </div>
@@ -2042,6 +2088,7 @@ const TABS = [
 ];
 
 export default function App() {
+  const deviceId = useMemo(() => getDeviceId(), []);
   const [profile, setProfile] = useState(null);
   const [tab, setTab] = useState("main");
   const [activeSentence, setActiveSentence] = useState(null);
@@ -2052,19 +2099,44 @@ export default function App() {
   const [history, setHistory] = useState([]);
   const [voices, setVoices] = useState([]);
   const [voice, setVoice] = useState(null);
+  // Supabase 미설정 시엔 기다릴 필요가 없으니 바로 "로딩 끝"으로 시작
+  const [remoteLoaded, setRemoteLoaded] = useState(!isSupabaseConfigured);
 
   useEffect(() => { loadVoices().then((vs) => { setVoices(vs); setVoice(vs[0] || null); }); }, []);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(""), 2200); return () => clearTimeout(t); }, [toast]);
 
+  // 앱 첫 실행 시 이 기기(deviceId)에 저장된 온보딩 결과/단어장/이력을 Supabase에서 불러옵니다.
+  // 키가 설정되어 있지 않으면(로컬 전용 모드) 아무 것도 하지 않고 넘어갑니다.
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let cancelled = false;
+    fetchRemoteState(deviceId).then((remote) => {
+      if (cancelled) return;
+      if (remote.answers) setProfile(normalizeProfile(remote.answers));
+      if (remote.items.length) setStore({ items: remote.items });
+      if (remote.history.length) setHistory(remote.history);
+      setRemoteLoaded(true);
+    }).catch((err) => {
+      console.warn("[Hook English] 저장된 데이터 불러오기 실패, 로컬 전용으로 계속합니다:", err);
+      if (!cancelled) setRemoteLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, [deviceId]);
+
   // 문장 열람 시마다 문법 이력 축적 → "지난번 사례" 노출에 사용
   useEffect(() => {
     if (!activeSentence) return;
-    setHistory((h) => h.some((x) => x.sentenceId === activeSentence.id) ? h : [...h, {
-      sentenceId: activeSentence.id,
-      text: activeSentence.text,
-      grammarKeys: activeSentence.grammarKeys || [],
-      at: virtualNow.toISOString(),
-    }]);
+    setHistory((h) => {
+      if (h.some((x) => x.sentenceId === activeSentence.id)) return h;
+      const entry = {
+        sentenceId: activeSentence.id,
+        text: activeSentence.text,
+        grammarKeys: activeSentence.grammarKeys || [],
+        at: virtualNow.toISOString(),
+      };
+      insertHistoryRemote(deviceId, entry);
+      return [...h, entry];
+    });
   }, [activeSentence]);
 
   const savedSentences = store.items.filter((i) => i.type === "sentence");
@@ -2072,10 +2144,11 @@ export default function App() {
   const savedIds = useMemo(() => new Set(savedSentences.map((i) => i.sourceId)), [store]);
   const dueCount = store.items.filter((i) => !i.mastered && new Date(i.nextReviewAt) <= virtualNow).length;
 
-  const addItem = (payload) => setStore((p) => ({
-    ...p,
-    items: [...p.items, { id: uid(payload.type), stage: 0, nextReviewAt: addDays(virtualNow, REVIEW_INTERVALS_DAYS[0]).toISOString(), mastered: false, ...payload }],
-  }));
+  const addItem = (payload) => {
+    const item = { id: uid(payload.type), stage: 0, nextReviewAt: addDays(virtualNow, REVIEW_INTERVALS_DAYS[0]).toISOString(), mastered: false, ...payload };
+    setStore((p) => ({ ...p, items: [...p.items, item] }));
+    insertItemRemote(deviceId, item);
+  };
 
   const handleSaveWord = (v, sentence) => {
     if (store.items.some((i) => i.type === "word" && i.text === v.word)) { setToast("이미 단어장에 있어요"); return; }
@@ -2092,16 +2165,35 @@ export default function App() {
     setTab(target === "main" ? "training" : target);
   };
 
-  const handleStartCustom = (englishText, originKo) => {
-    const words = englishText.replace(/[.,!?]/g, "").split(" ");
-    const keys = [];
-    if (/let me/i.test(englishText)) keys.push("letMeStructure");
-    if (/could you|can you|would you/i.test(englishText)) keys.push("politeRequest");
-    if (/going to|gonna/i.test(englishText)) keys.push("nearFuture");
-    if (/\bbut\b|although/i.test(englishText)) keys.push("concessiveContrast");
-    if (/should|might want/i.test(englishText)) keys.push("modalSuggestion");
-    if (/could|might|may\b/i.test(englishText)) keys.push("conditionalPossibility");
-    if (!keys.length) keys.push("phrasalVerb");
+  const handleStartCustom = (englishText, originKo, meta) => {
+    // meta는 ComposerBox가 실제 GPT 호출(translate Edge Function) 결과를 그대로 넘겨준 것.
+    // GPT가 골라준 문법 키/어휘/대안 표현이 있으면 그걸 쓰고, 없으면(GPT 미연결/실패) 예전
+    // 정규식 기반 추측으로 폴백합니다.
+    const validGrammarKeys = (meta?.grammarKeys || []).filter((k) => GRAMMAR_LIBRARY[k]);
+    const llmVocab = (meta?.vocab || [])
+      .filter((v) => v?.word && v?.meaning)
+      .map((v) => ({ word: String(v.word).toLowerCase(), meaning: v.meaning, freq: v.note || "GPT 분석" }));
+
+    let grammarKeys = validGrammarKeys;
+    let vocab = llmVocab;
+
+    if (!grammarKeys.length || !vocab.length) {
+      const words = englishText.replace(/[.,!?]/g, "").split(" ");
+      if (!grammarKeys.length) {
+        const keys = [];
+        if (/let me/i.test(englishText)) keys.push("letMeStructure");
+        if (/could you|can you|would you/i.test(englishText)) keys.push("politeRequest");
+        if (/going to|gonna/i.test(englishText)) keys.push("nearFuture");
+        if (/\bbut\b|although/i.test(englishText)) keys.push("concessiveContrast");
+        if (/should|might want/i.test(englishText)) keys.push("modalSuggestion");
+        if (/could|might|may\b/i.test(englishText)) keys.push("conditionalPossibility");
+        if (!keys.length) keys.push("phrasalVerb");
+        grammarKeys = [...new Set(keys)].slice(0, 3);
+      }
+      if (!vocab.length) {
+        vocab = words.filter((w) => w.length > 3).slice(0, 3).map((w) => ({ word: w.toLowerCase(), meaning: "직접 입력 문장의 어휘", freq: "빈도 데이터 없음" }));
+      }
+    }
 
     setActiveSentence({
       id: uid("custom"),
@@ -2109,8 +2201,8 @@ export default function App() {
       text: englishText,
       originKo,
       translation: originKo || "(직접 입력한 문장)",
-      grammarKeys: [...new Set(keys)].slice(0, 3),
-      vocab: words.filter((w) => w.length > 3).slice(0, 3).map((w) => ({ word: w.toLowerCase(), meaning: "직접 입력 문장의 어휘", freq: "빈도 데이터 없음" })),
+      grammarKeys,
+      vocab,
       sound: {
         title: "일반 연음 패턴",
         pattern: "자음 + 모음 → 이어서 발음",
@@ -2120,7 +2212,7 @@ export default function App() {
           { en: "Let me **get back** to you.", ko: "확인하고 알려드릴게요." },
         ],
       },
-      nativeAlternatives: [],
+      nativeAlternatives: meta?.alternatives || [],
     });
     setToast("입력한 문장으로 학습을 시작합니다");
   };
@@ -2142,12 +2234,23 @@ export default function App() {
     setTab("main");
   };
 
-  const markMastered = (id) => setStore((p) => ({ ...p, items: p.items.map((i) => (i.id === id ? { ...i, mastered: true } : i)) }));
+  const markMastered = (id) => {
+    setStore((p) => ({ ...p, items: p.items.map((i) => (i.id === id ? { ...i, mastered: true } : i)) }));
+    updateItemRemote(deviceId, id, { mastered: true });
+  };
+
+  if (!remoteLoaded) {
+    return (
+      <div className="max-w-[400px] mx-auto min-h-screen bg-white flex items-center justify-center text-gray-400 text-sm gap-2">
+        <Loader2 size={16} className="animate-spin" /> 저장된 학습 기록 불러오는 중...
+      </div>
+    );
+  }
 
   if (!profile) {
     return (
       <div className="max-w-[400px] mx-auto min-h-screen bg-white shadow-xl">
-        <Onboarding onComplete={(a) => { setProfile(normalizeProfile(a)); setTab("main"); }} />
+        <Onboarding onComplete={(a) => { setProfile(normalizeProfile(a)); saveProfileRemote(deviceId, a); setTab("main"); }} />
       </div>
     );
   }
@@ -2176,7 +2279,7 @@ export default function App() {
         )}
         {tab === "training" && (activeSentence ? <TrainingTab sentence={activeSentence} voice={voice} /> : needSentence)}
         {tab === "scoring" && (activeSentence ? <ScoringTab sentence={activeSentence} profile={profile} voice={voice} /> : needSentence)}
-        {tab === "review" && <ReviewTab store={store} setStore={setStore} virtualNow={virtualNow} advanceDay={() => setVirtualNow((d) => addDays(d, 1))} />}
+        {tab === "review" && <ReviewTab store={store} setStore={setStore} virtualNow={virtualNow} advanceDay={() => setVirtualNow((d) => addDays(d, 1))} deviceId={deviceId} />}
         {tab === "roleplay" && <RoleplayTab savedSentences={savedSentences} profile={profile} />}
       </div>
 
