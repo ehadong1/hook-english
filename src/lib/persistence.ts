@@ -49,7 +49,7 @@ export type NewsSentence = {
 
 /** 앱 시작 시 이 기기의 저장된 데이터를 한번에 불러옵니다. */
 export async function fetchRemoteState(deviceId: string): Promise<RemoteState> {
-  if (!supabase) return EMPTY_STATE;
+  if (!supabase || !deviceId) return EMPTY_STATE;
 
   const [profileRes, itemsRes, historyRes] = await Promise.all([
     supabase.from("hook_profiles").select("answers").eq("device_id", deviceId).maybeSingle(),
@@ -88,7 +88,7 @@ export async function fetchRemoteState(deviceId: string): Promise<RemoteState> {
 
 /** 온보딩 서베이 완료/수정 시 호출 */
 export async function saveProfileRemote(deviceId: string, answers: Record<string, unknown>) {
-  if (!supabase) return;
+  if (!supabase || !deviceId) return;
   const { error } = await supabase
     .from("hook_profiles")
     .upsert({ device_id: deviceId, answers, updated_at: new Date().toISOString() }, { onConflict: "device_id" });
@@ -97,7 +97,7 @@ export async function saveProfileRemote(deviceId: string, answers: Record<string
 
 /** 단어/문장을 새로 저장할 때 호출 (id는 프론트에서 미리 생성) */
 export async function insertItemRemote(deviceId: string, item: StoreItem) {
-  if (!supabase) return;
+  if (!supabase || !deviceId) return;
   const { error } = await supabase.from("hook_items").insert({
     id: item.id,
     device_id: deviceId,
@@ -118,7 +118,7 @@ export async function updateItemRemote(
   id: string,
   patch: Partial<Pick<StoreItem, "stage" | "nextReviewAt" | "mastered">>
 ) {
-  if (!supabase) return;
+  if (!supabase || !deviceId) return;
   const payload: Record<string, unknown> = {};
   if (patch.stage !== undefined) payload.stage = patch.stage;
   if (patch.nextReviewAt !== undefined) payload.next_review_at = patch.nextReviewAt;
@@ -130,7 +130,7 @@ export async function updateItemRemote(
 
 /** 문장을 열람해 문법 이력이 새로 쌓일 때 호출 (같은 문장은 1회만 기록) */
 export async function insertHistoryRemote(deviceId: string, entry: HistoryEntry) {
-  if (!supabase) return;
+  if (!supabase || !deviceId) return;
   const { error } = await supabase
     .from("hook_history")
     .upsert(

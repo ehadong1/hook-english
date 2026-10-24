@@ -6,10 +6,9 @@
 //
 // 배포: supabase functions deploy writing-feedback --project-ref <PROJECT_ID>
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsFor, guard } from "../_shared/guard.ts";
+
+const MAX_TEXT_LENGTH = 2000;
 
 const SYSTEM_PROMPT = `당신은 한국어가 모국어인 직장인의 "비즈니스 영어 글쓰기"를 첨삭하는 코치입니다.
 사용자가 일기(diary) 또는 업무 상황 문장(compose)을 영어 또는 한글로 씁니다. 이를 첨삭해주세요.
@@ -32,17 +31,28 @@ const SYSTEM_PROMPT = `당신은 한국어가 모국어인 직장인의 "비즈�
 }`;
 
 Deno.serve(async (req: Request) => {
+  const corsHeaders = corsFor(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
+    // 로그인 확인 + 하루 호출 횟수 제한 (통과하면 null)
+    const blocked = await guard(req, corsHeaders);
+    if (blocked) return blocked;
+
     const { text, profile, mode } = await req.json();
     if (!text || typeof text !== "string") {
       return new Response(JSON.stringify({ error: "text가 필요합니다." }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+    if (text.length > MAX_TEXT_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `글은 ${MAX_TEXT_LENGTH}자 이내로 입력해주세요.` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const apiKey = Deno.env.get("OPENAI_API_KEY");
@@ -53,8 +63,11 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const weaknesses = (profile?.weaknesses || []).join(", ") || "특별한 약점 없음";
-    const level = profile?.level || profile?.levelCode || "중급";
+    const rawWeaknesses = Array.isArray(profile?.weaknesses) ? profile.weaknesses : [];
+    const weaknesses =
+      rawWeaknesses.slice(0, 5).map((w: unknown) => String(w).slice(0, 30)).join(", ") ||
+      "특별한 약점 없음";
+    const level = String(profile?.level || profile?.levelCode || "중급").slice(0, 20);
     const modeLabel = mode === "diary" ? "일기 쓰기" : "업무 상황 문장 만들기";
 
     const userPrompt = `모드: ${modeLabel}\n사용자 영어 수준: ${level}\n사용자 약점: ${weaknesses}\n사용자가 쓴 글:\n"""${text}"""`;

@@ -14,6 +14,30 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
   ? createClient(url as string, anonKey as string)
   : null;
 
+/**
+ * 로그인 화면 없이 "익명 로그인"으로 이 브라우저 전용 사용자(auth.uid)를 만듭니다.
+ * 세션은 브라우저에 저장돼 다음 방문에도 같은 사용자로 이어집니다. DB 규칙(RLS)과
+ * Edge Function 호출 제한이 이 사용자 기준으로 동작합니다.
+ * 실패하면(익명 로그인이 꺼져 있는 등) null을 반환하고, 호출한 쪽이 로컬 모드로 계속합니다.
+ */
+export async function ensureSessionUserId(): Promise<string | null> {
+  if (!supabase) return null;
+  try {
+    const { data } = await supabase.auth.getSession();
+    if (data.session?.user?.id) return data.session.user.id;
+
+    const { data: signed, error } = await supabase.auth.signInAnonymously();
+    if (error) {
+      console.warn("[Hook English] 익명 로그인 실패:", error.message);
+      return null;
+    }
+    return signed.user?.id ?? null;
+  } catch (err) {
+    console.warn("[Hook English] 익명 로그인 중 오류:", err);
+    return null;
+  }
+}
+
 if (!isSupabaseConfigured && typeof window !== "undefined") {
   // eslint-disable-next-line no-console
   console.warn(

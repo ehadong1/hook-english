@@ -7,7 +7,7 @@ import {
   PenLine, Notebook, ChevronUp,
 } from "lucide-react";
 import { getDeviceId } from "./lib/deviceId";
-import { isSupabaseConfigured } from "./lib/supabaseClient";
+import { isSupabaseConfigured, ensureSessionUserId } from "./lib/supabaseClient";
 import {
   fetchRemoteState,
   saveProfileRemote,
@@ -2254,7 +2254,10 @@ const TABS = [
 ];
 
 export default function App() {
-  const deviceId = useMemo(() => getDeviceId(), []);
+  // 저장소의 사용자 식별자. Supabase가 켜져 있으면 익명 로그인으로 받은 auth.uid를 쓰고
+  // (DB 규칙이 이 값 기준으로 "내 데이터만" 허용), 실패하거나 꺼져 있으면 예전 방식의
+  // 기기 ID로 로컬 모드를 이어갑니다.
+  const [deviceId, setDeviceId] = useState(null);
   const [profile, setProfile] = useState(null);
   const [tab, setTab] = useState("main");
   const [activeSentence, setActiveSentence] = useState(null);
@@ -2271,10 +2274,17 @@ export default function App() {
   useEffect(() => { loadVoices().then((vs) => { setVoices(vs); setVoice(vs[0] || null); }); }, []);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(""), 2200); return () => clearTimeout(t); }, [toast]);
 
-  // 앱 첫 실행 시 이 기기(deviceId)에 저장된 온보딩 결과/단어장/이력을 Supabase에서 불러옵니다.
+  useEffect(() => {
+    if (!isSupabaseConfigured) { setDeviceId(getDeviceId()); return; }
+    let cancelled = false;
+    ensureSessionUserId().then((id) => { if (!cancelled) setDeviceId(id || getDeviceId()); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // 사용자 식별자가 정해지면, 이 사용자에게 저장된 온보딩 결과/단어장/이력을 Supabase에서 불러옵니다.
   // 키가 설정되어 있지 않으면(로컬 전용 모드) 아무 것도 하지 않고 넘어갑니다.
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured || !deviceId) return;
     let cancelled = false;
     fetchRemoteState(deviceId).then((remote) => {
       if (cancelled) return;

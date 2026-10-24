@@ -7,10 +7,9 @@
 //   supabase functions deploy translate --project-ref <PROJECT_ID>
 //   supabase secrets set OPENAI_API_KEY=sk-... --project-ref <PROJECT_ID>
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { corsFor, guard } from "../_shared/guard.ts";
+
+const MAX_TEXT_LENGTH = 300;
 
 // SentenceDissection 화면("구조 및 해설 보기")이 참조하는 문법 라이브러리 키 목록.
 // 반드시 이 중에서만 골라야 앱의 기존 문법 설명 카드(GRAMMAR_LIBRARY)와 연결됩니다.
@@ -47,17 +46,28 @@ const SYSTEM_PROMPT = `당신은 한국어가 모국어인 직장인에게 "실�
 }`;
 
 Deno.serve(async (req: Request) => {
+  const corsHeaders = corsFor(req);
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
+    // 로그인 확인 + 하루 호출 횟수 제한 (통과하면 null)
+    const blocked = await guard(req, corsHeaders);
+    if (blocked) return blocked;
+
     const { text, profile } = await req.json();
     if (!text || typeof text !== "string") {
       return new Response(JSON.stringify({ error: "text가 필요합니다." }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+    if (text.length > MAX_TEXT_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `문장은 ${MAX_TEXT_LENGTH}자 이내로 입력해주세요.` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const apiKey = Deno.env.get("OPENAI_API_KEY");
@@ -74,7 +84,7 @@ Deno.serve(async (req: Request) => {
       "캐주얼 친근": "casual",
     };
     const tone = toneMap[profile?.tone as string] || "neutral";
-    const level = profile?.level || profile?.levelCode || "중급";
+    const level = String(profile?.level || profile?.levelCode || "중급").slice(0, 20);
 
     const userPrompt = `한국어 문장: "${text}"\ntone: ${tone}\n사용자 영어 수준: ${level}`;
 
