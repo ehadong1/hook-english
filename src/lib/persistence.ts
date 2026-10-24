@@ -30,6 +30,23 @@ export type RemoteState = {
 
 const EMPTY_STATE: RemoteState = { answers: null, items: [], history: [] };
 
+// App.tsx의 SENTENCE_BANK 항목과 동일한 모양 (SentenceList/SentenceDissection이
+// 그대로 재사용할 수 있도록). hook_news_sentences 테이블에서 읽어옵니다.
+export type NewsSentence = {
+  id: string;
+  level: string;
+  topic: string;
+  tone: string;
+  situations: string[];
+  text: string;
+  translation: string;
+  grammarKeys: string[];
+  vocab: { word: string; meaning: string; note?: string; freq?: string }[];
+  nativeAlternatives: { en: string; ko: string; note: string }[];
+  sourceUrl?: string;
+  isNews: true;
+};
+
 /** 앱 시작 시 이 기기의 저장된 데이터를 한번에 불러옵니다. */
 export async function fetchRemoteState(deviceId: string): Promise<RemoteState> {
   if (!supabase) return EMPTY_STATE;
@@ -127,4 +144,42 @@ export async function insertHistoryRemote(deviceId: string, entry: HistoryEntry)
       { onConflict: "device_id,sentence_id", ignoreDuplicates: true }
     );
   if (error) console.warn("[Hook English] 학습 이력 저장 실패:", error.message);
+}
+
+/**
+ * 검수 완료(approved)된 최신 뉴스 문장을 가져옵니다. bankTopics는 App.tsx의
+ * TOPIC_TO_BANK 값들(예: "비즈니스/IT 트렌드")이어야 합니다. 실패하거나
+ * Supabase가 설정되지 않았으면 빈 배열을 반환하고, 호출 쪽(App.tsx)이 기존
+ * SENTENCE_BANK의 정적 뉴스 문장으로 자동 대체합니다.
+ */
+export async function fetchNewsSentences(bankTopics: string[]): Promise<NewsSentence[]> {
+  if (!supabase || bankTopics.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("hook_news_sentences")
+    .select("*")
+    .eq("status", "approved")
+    .in("topic", bankTopics)
+    .order("published_date", { ascending: false })
+    .limit(12);
+
+  if (error || !data) {
+    if (error) console.warn("[Hook English] 뉴스 문장 로드 실패:", error.message);
+    return [];
+  }
+
+  return data.map((row: any) => ({
+    id: row.id,
+    level: row.level,
+    topic: row.topic,
+    tone: row.tone,
+    situations: row.situations || [],
+    text: row.text,
+    translation: row.translation,
+    grammarKeys: row.grammar_keys || [],
+    vocab: row.vocab || [],
+    nativeAlternatives: row.native_alternatives || [],
+    sourceUrl: row.source_url || undefined,
+    isNews: true as const,
+  }));
 }

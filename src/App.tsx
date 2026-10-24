@@ -14,6 +14,7 @@ import {
   insertItemRemote,
   updateItemRemote,
   insertHistoryRemote,
+  fetchNewsSentences,
 } from "./lib/persistence";
 import { callLlmTranslate, callLlmWritingFeedback } from "./lib/llmProvider";
 
@@ -336,6 +337,71 @@ const GRAMMAR_LIBRARY = {
     ],
   },
 };
+
+// 문장 텍스트에서 문법 패턴이 실제로 어디에 쓰였는지 찾는 정규식.
+// GRAMMAR_LIBRARY 카드와 SentenceDissection의 "이 문장에서" 해설을 연결합니다.
+const GRAMMAR_DETECT = {
+  politeRequest: /\b((?:could|can|would)\s+you(?:\s+mind)?)/i,
+  nearFuture: /\b((?:going\s+to|gonna)(?:\s+\w+)?)/i,
+  reportedSpeech: /\b((?:said|told|mentioned|noted|flagged|warn(?:s|ed)?)\b(?:\s+\w+){0,3})/i,
+  phrasalVerb: /\b((?:figure\s+out|get\s+back\s+to|look\s+into|follow\s+up|iron\s+out|roll\s+out|kick(?:s)?\s+off|catch\s+up|check\s+in|reach\s+out|walk(?:\s+\w+)?\s+through|align\s+on))\b/i,
+  modalSuggestion: /\b((?:should|might\s+want\s+to|need\s+to)\s+\w+)/i,
+  // could/can/would you는 politeRequest로 분류하므로 여기서 제외
+  conditionalPossibility: /\b((?:could|might|may)(?!\s+you)\s+\w+)/i,
+  // be going to는 nearFuture로 분류하므로 going은 제외
+  presentProgressive: /\b((?:am|is|are|'m|'s|'re|was|were)\s+(?!going\b)\w+ing\b)/i,
+  idiomaticExpression: /\b((?:step\s+on\s+(?:\w+'s\s+)?toes|circle\s+back|low-hanging\s+fruit|on\s+the\s+same\s+page|raise(?:d)?\s+(?:some\s+)?eyebrows))\b/i,
+  quantifier: /\b((?:a\s+lot\s+of|plenty\s+of|tons?\s+of|a\s+number\s+of|a\s+handful\s+of)\s+\w+)/i,
+  letMeStructure: /\b(let\s+me(?:\s+\w+)?)/i,
+  concessiveContrast: /\b((?:but|although|though|however)\b)/i,
+};
+
+function detectGrammarKeysFromText(text) {
+  if (!text) return [];
+  const keys = [];
+  for (const [key, pattern] of Object.entries(GRAMMAR_DETECT)) {
+    if (pattern.test(text)) keys.push(key);
+  }
+  return keys;
+}
+
+function findGrammarMatch(key, text) {
+  const pattern = GRAMMAR_DETECT[key];
+  if (!pattern || !text) return null;
+  const m = text.match(pattern);
+  return m ? m[1] || m[0] : null;
+}
+
+/** 현재 학습 문장에 맞춰 문법 카드용 해설(매칭 구간 + 팁)을 만듭니다. */
+function explainGrammarInSentence(key, sentenceText) {
+  const g = GRAMMAR_LIBRARY[key];
+  if (!g) return null;
+  const match = findGrammarMatch(key, sentenceText);
+  if (match) {
+    return {
+      match,
+      tip: `이 문장에서는 「${match}」가 「${g.structure}」 패턴으로 쓰였어요. ${g.summary}`,
+    };
+  }
+  return {
+    match: null,
+    tip: `지금 문장 「${sentenceText}」을(를) 기준으로 보면, ${g.summary}`,
+  };
+}
+
+function highlightGrammarMatch(text, match) {
+  if (!text) return null;
+  if (!match) return text;
+  const idx = text.toLowerCase().indexOf(match.toLowerCase());
+  if (idx < 0) return text;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="bg-indigo-100 text-indigo-900 font-semibold px-0.5 rounded-sm">{text.slice(idx, idx + match.length)}</mark>
+      {text.slice(idx + match.length)}
+    </>
+  );
+}
 
 /* ============================================================================
    SECTION 3. 문장 데이터 뱅크
@@ -1119,13 +1185,23 @@ function Onboarding({ onComplete }) {
    SECTION 9. 문법 상세 시트 + 문장 해부
    ============================================================================ */
 
-function GrammarDetailSheet({ grammarKey, pastCases, onClose }) {
+function GrammarDetailSheet({ grammarKey, pastCases, sentenceText, sentenceTranslation, onClose }) {
   const g = GRAMMAR_LIBRARY[grammarKey];
   if (!g) return null;
+  const applied = explainGrammarInSentence(grammarKey, sentenceText);
   return (
     <BottomSheet title={g.label} onClose={onClose}>
       <div className="inline-block bg-indigo-50 text-indigo-700 text-xs font-bold px-2.5 py-1 rounded-lg mb-3">{g.structure}</div>
-      <p className="text-sm text-gray-800 leading-relaxed mb-5">{g.summary}</p>
+      <p className="text-sm text-gray-800 leading-relaxed mb-4">{g.summary}</p>
+
+      {sentenceText && applied && (
+        <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-3.5 mb-5">
+          <p className="text-xs font-bold text-indigo-600 mb-1.5">이 문장에서</p>
+          <p className="text-sm font-medium text-gray-900 leading-snug">{highlightGrammarMatch(sentenceText, applied.match)}</p>
+          {sentenceTranslation && <p className="text-xs text-gray-500 mt-1">{sentenceTranslation}</p>}
+          <p className="text-sm text-gray-700 leading-relaxed mt-2">{applied.tip}</p>
+        </div>
+      )}
 
       <p className="text-xs font-bold text-gray-400 mb-2">자세히 알아보기</p>
       <ul className="space-y-2.5 mb-5">
@@ -1143,6 +1219,16 @@ function GrammarDetailSheet({ grammarKey, pastCases, onClose }) {
 
       <p className="text-xs font-bold text-gray-400 mb-2">실제 대화에서 이렇게 씁니다</p>
       <div className="space-y-2 mb-5">
+        {sentenceText && (
+          <div className="bg-indigo-50 rounded-xl p-3 flex justify-between items-start gap-2 border border-indigo-100">
+            <div>
+              <p className="text-[10px] font-bold text-indigo-500 mb-1">지금 배우는 문장</p>
+              <p className="text-sm font-medium text-gray-900">{highlightGrammarMatch(sentenceText, applied?.match)}</p>
+              {sentenceTranslation && <p className="text-xs text-gray-500 mt-0.5">{sentenceTranslation}</p>}
+            </div>
+            <SpeakButton text={sentenceText} size={16} />
+          </div>
+        )}
         {g.realUsage.map((u, i) => (
           <div key={i} className="bg-gray-50 rounded-xl p-3 flex justify-between items-start gap-2">
             <div><p className="text-sm font-medium text-gray-900">{u.en}</p><p className="text-xs text-gray-500 mt-0.5">{u.ko}</p></div>
@@ -1173,6 +1259,28 @@ function SentenceDissection({ sentence, history, onSaveWord, defaultOpen }) {
   const [detailKey, setDetailKey] = useState(null);
   useEffect(() => { setOpen(!!defaultOpen); }, [sentence.id, defaultOpen]);
 
+  // 1) 문장에 달린 grammarKeys 우선
+  // 2) 비어 있으면 문장 텍스트에서 패턴 탐지 (뉴스/커스텀 문장 대비)
+  // 3) 그래도 없으면 예전 학습 문법 중 최빈값을 복습용으로
+  const validKeys = (sentence.grammarKeys || []).filter((k) => GRAMMAR_LIBRARY[k]);
+  const detectedKeys = useMemo(
+    () => detectGrammarKeysFromText(sentence.text).filter((k) => GRAMMAR_LIBRARY[k]),
+    [sentence.text]
+  );
+  const reviewKey = useMemo(() => {
+    if (validKeys.length > 0 || detectedKeys.length > 0) return null;
+    const counts = {};
+    (history || []).forEach((h) => (h.grammarKeys || []).forEach((k) => {
+      if (GRAMMAR_LIBRARY[k]) counts[k] = (counts[k] || 0) + 1;
+    }));
+    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+    return sorted[0]?.[0] || null;
+  }, [validKeys.length, detectedKeys.length, history]);
+  const displayKeys = validKeys.length > 0
+    ? validKeys
+    : (detectedKeys.length > 0 ? detectedKeys.slice(0, 2) : (reviewKey ? [reviewKey] : []));
+  const isReview = validKeys.length === 0 && detectedKeys.length === 0 && displayKeys.length > 0;
+
   return (
     <div className="mt-3">
       <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-indigo-50 text-indigo-700 text-sm font-semibold">
@@ -1183,40 +1291,57 @@ function SentenceDissection({ sentence, history, onSaveWord, defaultOpen }) {
       {open && (
         <div className="mt-3 space-y-3">
           <div className="bg-gray-50 rounded-xl p-3.5">
-            <p className="text-xs font-bold text-gray-400 mb-2">① 문법 구조</p>
-            <div className="space-y-2.5">
-              {sentence.grammarKeys.map((key) => {
-                const g = GRAMMAR_LIBRARY[key];
-                if (!g) return null;
-                const past = findPastGrammarCases(key, history, sentence.id);
-                return (
-                  <div key={key} className="bg-white rounded-lg p-3 border border-gray-100">
-                    <button onClick={() => setDetailKey(key)} className="w-full text-left">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-bold text-gray-900">{g.label}</p>
-                          <p className="text-[11px] text-indigo-600 font-medium mt-0.5">{g.structure}</p>
+            <p className="text-xs font-bold text-gray-400 mb-2">
+              ① 문법 구조{isReview && <span className="ml-1.5 text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">복습</span>}
+            </p>
+            {displayKeys.length === 0 ? (
+              <p className="text-xs text-gray-400 leading-relaxed">
+                이 문장에서 새로 배울 문법 포인트는 없어요. 문장을 몇 개 더 풀면 예전에 배운 문법이 복습으로 여기 나타나요.
+              </p>
+            ) : (
+              <div className="space-y-2.5">
+                {displayKeys.map((key) => {
+                  const g = GRAMMAR_LIBRARY[key];
+                  if (!g) return null;
+                  const past = findPastGrammarCases(key, history, sentence.id);
+                  const applied = explainGrammarInSentence(key, sentence.text);
+                  return (
+                    <div key={key} className="bg-white rounded-lg p-3 border border-gray-100">
+                      <button onClick={() => setDetailKey(key)} className="w-full text-left">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-bold text-gray-900">{g.label}</p>
+                            <p className="text-[11px] text-indigo-600 font-medium mt-0.5">{g.structure}</p>
+                          </div>
+                          <span className="flex items-center gap-0.5 text-[10px] text-indigo-500 font-semibold shrink-0 bg-indigo-50 px-2 py-1 rounded-full">
+                            <Info size={11} /> 자세히
+                          </span>
                         </div>
-                        <span className="flex items-center gap-0.5 text-[10px] text-indigo-500 font-semibold shrink-0 bg-indigo-50 px-2 py-1 rounded-full">
-                          <Info size={11} /> 자세히
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-700 leading-relaxed mt-2">{g.summary}</p>
-                    </button>
-                    {past.length > 0 && (
-                      <div className="mt-2.5 pt-2.5 border-t border-dashed border-gray-200">
-                        <p className="text-[10px] font-bold text-amber-600 mb-1">지난번에도 이 문법을 봤어요</p>
-                        {past.map((c, i) => (
-                          <p key={i} className="text-[11px] text-gray-500 leading-relaxed">
-                            · {c.text} <span className="text-gray-300">({new Date(c.at).toLocaleDateString("ko-KR")})</span>
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                        {applied && (
+                          <div className="mt-2.5 bg-indigo-50/70 rounded-lg px-2.5 py-2">
+                            <p className="text-[10px] font-bold text-indigo-500 mb-1">이 문장에서</p>
+                            <p className="text-sm font-medium text-gray-900 leading-snug">
+                              {highlightGrammarMatch(sentence.text, applied.match)}
+                            </p>
+                            <p className="text-sm text-gray-700 leading-relaxed mt-1.5">{applied.tip}</p>
+                          </div>
+                        )}
+                      </button>
+                      {past.length > 0 && (
+                        <div className="mt-2.5 pt-2.5 border-t border-dashed border-gray-200">
+                          <p className="text-[10px] font-bold text-amber-600 mb-1">지난번에도 이 문법을 봤어요</p>
+                          {past.map((c, i) => (
+                            <p key={i} className="text-[11px] text-gray-500 leading-relaxed">
+                              · {c.text} <span className="text-gray-300">({new Date(c.at).toLocaleDateString("ko-KR")})</span>
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="bg-gray-50 rounded-xl p-3.5">
@@ -1252,11 +1377,29 @@ function SentenceDissection({ sentence, history, onSaveWord, defaultOpen }) {
               </div>
             </div>
           )}
+
+          {sentence.isNews && sentence.sourceUrl && (
+            <a
+              href={sentence.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between bg-white border border-gray-100 rounded-xl px-3.5 py-3 text-xs text-gray-500"
+            >
+              <span>원문 기사 보러 가기</span>
+              <span className="text-indigo-500 font-semibold">열기 ↗</span>
+            </a>
+          )}
         </div>
       )}
 
       {detailKey && (
-        <GrammarDetailSheet grammarKey={detailKey} pastCases={findPastGrammarCases(detailKey, history, sentence.id)} onClose={() => setDetailKey(null)} />
+        <GrammarDetailSheet
+          grammarKey={detailKey}
+          pastCases={findPastGrammarCases(detailKey, history, sentence.id)}
+          sentenceText={sentence.text}
+          sentenceTranslation={sentence.translation}
+          onClose={() => setDetailKey(null)}
+        />
       )}
     </div>
   );
@@ -1894,22 +2037,22 @@ function ComposerBox({ profile, onStart, minimal = false }) {
 }
 
 function HookWordmark({ size = "md", showSubtitle = true }) {
+  const isHero = size === "hero";
   const cfg = {
-    sm: { text: "text-[18px]", sub: "text-[9px] tracking-[0.3em]" },
-    hero: { text: "text-[48px]", sub: "text-[20px] tracking-[0.28em]" },
-  }[size] || { text: "text-3xl", sub: "text-sm tracking-[0.28em]" };
+    sm: { text: "text-[18px]", sub: "text-[9px] tracking-[0.3em]", titleGap: "mt-1.5" },
+    hero: { text: "text-[52px]", sub: "text-[20px] tracking-[0.28em]", titleGap: "mt-1" },
+  }[size] || { text: "text-3xl", sub: "text-sm tracking-[0.28em]", titleGap: "mt-2" };
 
   return (
     <div className="inline-flex flex-col items-center select-none">
       <span
-        className={`${cfg.text} font-bold tracking-[-0.03em] text-[#0f2744] leading-none`}
-        style={{ fontFamily: "var(--font-display)" }}
+        className={`hook-wordmark-title ${cfg.text}${isHero ? " hook-wordmark-title--hero" : ""}`}
       >
         Hook
       </span>
       {showSubtitle && (
         <span
-          className={`${cfg.sub} font-extrabold text-[#3d5168] uppercase mt-2.5`}
+          className={`${cfg.sub} ${cfg.titleGap} font-extrabold text-[#3d5168] uppercase`}
           style={{ fontFamily: "var(--font-ui)" }}
         >
           English
@@ -1938,7 +2081,30 @@ function MainTab({ profile, activeSentence, setActiveSentence, history, onSaveWo
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuMode, setMenuMode] = useState(null);
   const recommended = useMemo(() => getRecommendedSentences(profile), [profile]);
-  const newsSentences = useMemo(() => getNewsSentences(profile), [profile]);
+
+  // 우선 정적 SENTENCE_BANK의 뉴스 문장으로 즉시 보여주고, Supabase에
+  // 검수 완료(approved)된 실제 뉴스 문장이 있으면 백그라운드에서 교체합니다.
+  // (Supabase 미설정/실패 시에도 화면이 비지 않도록 하는 안전장치)
+  const [newsSentences, setNewsSentences] = useState(() => getNewsSentences(profile));
+  const bankTopics = useMemo(
+    () => [...new Set((profile.topics || []).map((t) => TOPIC_TO_BANK[t]).filter(Boolean))],
+    [profile]
+  );
+  useEffect(() => {
+    setNewsSentences(getNewsSentences(profile));
+    if (!isSupabaseConfigured) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const remote = await fetchNewsSentences(bankTopics.length ? bankTopics : ["최신 시사 및 뉴스"]);
+        if (!cancelled && remote.length) setNewsSentences(remote.slice(0, 3));
+      } catch {
+        /* 폴백(정적 문장) 유지 */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [profile, bankTopics]);
+
   const weaknesses = profile.weaknesses || [profile.weakness].filter(Boolean);
   const autoOpen = weaknesses.includes("문법") || weaknesses.includes("문장 구성");
   const openMenu = (mode) => { setMenuMode(mode); setMenuOpen(true); };
@@ -2180,15 +2346,8 @@ export default function App() {
     if (!grammarKeys.length || !vocab.length) {
       const words = englishText.replace(/[.,!?]/g, "").split(" ");
       if (!grammarKeys.length) {
-        const keys = [];
-        if (/let me/i.test(englishText)) keys.push("letMeStructure");
-        if (/could you|can you|would you/i.test(englishText)) keys.push("politeRequest");
-        if (/going to|gonna/i.test(englishText)) keys.push("nearFuture");
-        if (/\bbut\b|although/i.test(englishText)) keys.push("concessiveContrast");
-        if (/should|might want/i.test(englishText)) keys.push("modalSuggestion");
-        if (/could|might|may\b/i.test(englishText)) keys.push("conditionalPossibility");
-        if (!keys.length) keys.push("phrasalVerb");
-        grammarKeys = [...new Set(keys)].slice(0, 3);
+        const detected = detectGrammarKeysFromText(englishText);
+        grammarKeys = (detected.length ? detected : ["phrasalVerb"]).slice(0, 3);
       }
       if (!vocab.length) {
         vocab = words.filter((w) => w.length > 3).slice(0, 3).map((w) => ({ word: w.toLowerCase(), meaning: "직접 입력 문장의 어휘", freq: "빈도 데이터 없음" }));
