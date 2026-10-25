@@ -12,8 +12,8 @@ const ALLOWED_ORIGINS = [
 ];
 
 // 하루 한도 (GPT 비용 상한을 정하는 값). 필요하면 여기만 바꾸고 다시 배포하세요.
-export const USER_DAILY_LIMIT = 30;
-export const GLOBAL_DAILY_LIMIT = 1000;
+export const USER_DAILY_LIMIT = 60;
+export const GLOBAL_DAILY_LIMIT = 1500;
 
 export function corsFor(req: Request) {
   const origin = req.headers.get("Origin") || "";

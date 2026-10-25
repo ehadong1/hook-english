@@ -206,6 +206,41 @@ supabase functions logs translate --project-ref <Project ID>
 완전히 비공개로 막고 싶다면 나중에 저장소를 Private로 바꾸고 GitHub Pro(유료)로 전환하거나,
 Vercel/Netlify의 배포 보호(비밀번호) 기능이 있는 플랜으로 옮기는 방법이 있습니다.
 
+## 코드 구조 (폴더 지도)
+
+```
+src/
+  App.tsx            최상위 상태(로그인, 저장 데이터, 탭)와 화면 연결
+  types.ts           공통 타입
+  screens/           화면: Onboarding(2페이지) · Main · Grammar(구조·해설) · Training(리스닝)
+                     · Scoring(따라 말하기·비교 듣기) · Review(복습) · Roleplay(실전 대화)
+  components/        공통 UI(common), 모달(Modals), 학습 루틴 안내(RoutineGuide)
+  data/              설문 항목(survey), 문법 설명(grammar), 학습 문장(sentences)
+  lib/               supabaseClient(익명 로그인) · persistence(DB 읽기/쓰기) · llmProvider(Edge Function 호출)
+                     · translate · speech · personalization
+supabase/functions/  translate · writing-feedback · roleplay · _shared/guard.ts(로그인 확인 + 하루 호출 한도)
+```
+
+- 모든 소스 파일은 타입 검사를 켠 상태입니다 (`npx tsc -b --noEmit`).
+- 색은 `src/index.css`의 `@theme`(brand-*, accent-*)만 바꾸면 앱 전체가 함께 바뀝니다.
+- `?dev=1`을 주소 끝에 붙이면 복습 탭에 개발용 "+1일" 버튼이 나타납니다 (일반 사용자에게는 안 보임).
+- 쓰이지 않는 템플릿 파일(`src/assets/hero.png`, `react.svg`, `vite.svg`, `public/icons.svg`)은 지워도 됩니다.
+
+## 보안 모델과 호출 한도
+
+- 로그인 화면 없이 **익명 로그인**으로 브라우저마다 사용자(auth.uid)를 만들고, DB 규칙(RLS)은 "내 행만" 허용합니다 (`supabase_security_migration.sql`).
+- Edge Function(`translate`, `writing-feedback`, `roleplay`)은 로그인한 사용자만 호출할 수 있고, 하루 사용자당 60회 · 서비스 전체 1,500회로 제한됩니다 (`supabase/functions/_shared/guard.ts` 맨 위 숫자로 조절).
+- 허용 도메인(CORS)도 `guard.ts`의 `ALLOWED_ORIGINS`에 있습니다. **도메인을 새로 연결하면 여기에 추가하고 함수를 다시 배포해야 합니다.**
+- 봇이 익명 계정을 계속 만드는 것까지 막으려면 Supabase Authentication의 CAPTCHA를 켜야 합니다 (아직 안 켬).
+
+## 실전 대화 (roleplay) 배포
+
+```bash
+supabase functions deploy roleplay --project-ref <PROJECT_ID>
+```
+
+저장한 문장 중 최근 3개를 대화 속에서 자연스럽게 쓰도록 유도합니다. AI를 못 쓰면(한도 초과/연결 문제) 고정 대본으로 이어가고 화면에 그 사실을 표시합니다.
+
 ## React + TypeScript + Vite 템플릿 메모
 
 - Oxlint로 린트: `npm run lint`
