@@ -44,7 +44,7 @@ export function NotebookModal({ sentences, words, history, onClose, onMaster, on
   };
 
   return (
-    <BottomSheet title="나의 영어 수첩" onClose={onClose}>
+    <BottomSheet title="나만의 영어노트" onClose={onClose}>
       <div className="bg-brand-50 rounded-xl p-3 mb-4 flex justify-between items-center">
         <div>
           <p className="text-xs font-bold text-brand-800">총 {total}개 · 암기 {mastered}개</p>

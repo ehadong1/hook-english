@@ -7,7 +7,7 @@ type Step = { title: string; desc: string };
 
 // Hook English의 반복 학습 루틴. 1~4: 학습(새 문장 익히기), 5~7: 반복(나만의 훅 만들기)
 const STEPS: Step[] = [
-  { title: "알고 싶은 문장을 학습해요", desc: "한글로 쓰거나 추천 문장을 골라요" },
+  { title: "영어로 표현하고 싶은 문장을 확인해요", desc: "한글로 쓰거나 추천 문장을 골라요" },
   { title: "원어민 표현·구조·문법을 이해해요", desc: "'구조 및 해설 보기'로 왜 이렇게 쓰는지 확인해요" },
   { title: "여러 번 읽고 따라 해요", desc: "듣고, 따라 말하고, 내 목소리와 비교해요" },
   { title: "일기나 문장 만들기로 써봐요", desc: "배운 문장을 내 상황에 넣어서 직접 써요" },
@@ -91,7 +91,7 @@ export function RoutineGuide({ savedCount, onOpenNotes }: { savedCount: number; 
   const deckH = CARD_H + (N - 1) * STRIP;
 
   return (
-    <section className="mt-3 rounded-2xl border border-brand-100 bg-brand-50/60 p-3.5" aria-label="Hook 학습 루틴">
+    <section className="isolate mt-3 rounded-2xl border border-brand-100 bg-brand-50/60 p-3.5" aria-label="Hook 학습 루틴">
       {/* 누르면 나만의 영어노트가 열려요 */}
       <button type="button" onClick={onOpenNotes} aria-label="나만의 영어노트 열기" className="w-full text-left active:opacity-80">
         <span className="flex items-center gap-2">

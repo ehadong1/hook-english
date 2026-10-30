@@ -202,7 +202,7 @@ export function ComposerBox({ profile, onStart, minimal = false, onSubmit }: { p
             value={text}
             onChange={(e) => { setText(e.target.value); setResult(null); }}
             onKeyDown={(e) => e.key === "Enter" && handleGo()}
-            placeholder={listening ? "듣고 있어요..." : minimal ? "궁금한 문장을 입력하세요 (한글 OK)" : "예: 회의 일정 좀 조정하고 싶은데요"}
+            placeholder={listening ? "듣고 있어요..." : minimal ? "영어로 하고 싶은 말을 써보세요 (한글 OK)" : "예: 회의 일정 좀 조정하고 싶은데요"}
             className="w-full pl-3.5 pr-11 py-3 rounded-xl bg-gray-100 text-sm outline-none focus:ring-2 focus:ring-brand-300"
           />
           {sttOk && (
