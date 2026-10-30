@@ -3,20 +3,34 @@ import { ChevronDown, ChevronUp, Repeat, Target } from "lucide-react";
 
 export type TabKey = "main" | "training" | "scoring" | "review" | "roleplay";
 
-type Step = { title: string; desc: string; tab: TabKey; where: string };
+type Step = { label: string; desc: string; tab: TabKey };
 
-// Hook English의 반복 학습 루틴. 앱의 모든 기능이 이 순서에 맞춰 배치되어 있습니다.
+// Hook English의 반복 학습 루틴. 한눈에 보이도록 짧은 키워드만 씁니다.
 const STEPS: Step[] = [
-  { title: "문장 고르기", desc: "알고 싶은 문장 입력·선택", tab: "main", where: "메인" },
-  { title: "이해하기", desc: "원어민 표현 · 구조 · 문법", tab: "main", where: "메인" },
-  { title: "따라 읽기", desc: "듣고 · 말하고 · 반복", tab: "training", where: "리스닝" },
-  { title: "써 보기", desc: "일기 · 문장 만들기", tab: "main", where: "메인" },
-  { title: "대화하기", desc: "실전 대화로 말해 보기", tab: "roleplay", where: "실전대화" },
-  { title: "복습하기", desc: "수집한 문장 다시 보기", tab: "review", where: "복습" },
-  { title: "다시 쓰기", desc: "실전 대화에서 재활용", tab: "roleplay", where: "실전대화" },
+  { label: "고르기", desc: "알고 싶은 문장 입력·선택", tab: "main" },
+  { label: "이해하기", desc: "원어민 표현 · 구조 · 문법", tab: "main" },
+  { label: "따라 읽기", desc: "듣고 · 말하고 · 반복", tab: "training" },
+  { label: "써 보기", desc: "일기 · 문장 만들기", tab: "main" },
+  { label: "대화하기", desc: "실전 대화로 말해 보기", tab: "roleplay" },
+  { label: "복습하기", desc: "수집한 문장 다시 보기", tab: "review" },
+  { label: "다시 쓰기", desc: "실전 대화에서 재활용", tab: "roleplay" },
 ];
 
 const GOAL = 1000;
+
+// 원형 배치용 좌표 (viewBox 와 같은 343 x 300 기준)
+const W = 343, H = 300, CX = W / 2, CY = H / 2, RX = 124, RY = 112;
+const N = STEPS.length;
+const angleOf = (i: number) => -Math.PI / 2 + (i * 2 * Math.PI) / N; // 위에서 시작, 시계 방향
+const pointAt = (t: number) => ({ x: CX + RX * Math.cos(t), y: CY + RY * Math.sin(t) });
+
+// 단계 사이에 놓는 방향 화살표 (타원 접선 방향으로 회전)
+const ARROWS = STEPS.map((_, i) => {
+  const t = angleOf(i) + Math.PI / N;
+  const { x, y } = pointAt(t);
+  const deg = (Math.atan2(RY * Math.cos(t), -RX * Math.sin(t)) * 180) / Math.PI;
+  return { x, y, deg };
+});
 
 export function RoutineGuide({ savedCount, onGo }: { savedCount: number; onGo: (tab: TabKey) => void }) {
   // 처음 방문하면 순서를 펼쳐서 보여주고, 한 번 닫으면 다음부터는 접어 둡니다.
@@ -29,7 +43,6 @@ export function RoutineGuide({ savedCount, onGo }: { savedCount: number; onGo: (
       return !o;
     });
   };
-  const [sel, setSel] = useState(0);
   const pct = Math.min(100, Math.round((savedCount / GOAL) * 100));
 
   return (
@@ -56,42 +69,44 @@ export function RoutineGuide({ savedCount, onGo }: { savedCount: number; onGo: (
 
       {open && (
         <div className="mt-3">
-          {/* 가로 단계 바: 1~7을 한 줄로, 끝에서 다시 1로 돌아가는 순환 표시 */}
-          <ol className="flex items-center" aria-label="학습 7단계">
-            {STEPS.map((s, i) => (
-              <li key={i} className="flex items-center flex-1 last:flex-none">
-                <button
-                  type="button"
-                  onClick={() => setSel(i)}
-                  aria-label={`${i + 1}단계 ${s.title}`}
-                  aria-current={sel === i ? "step" : undefined}
-                  className={`shrink-0 w-10 h-10 rounded-full text-sm font-bold flex items-center justify-center border-2 transition ${
-                    sel === i ? "bg-brand-600 border-brand-600 text-white scale-110" : "bg-white border-brand-200 text-brand-700"
-                  }`}
-                >
-                  {i + 1}
-                </button>
-                {i < STEPS.length - 1 && <span className="flex-1 h-0.5 bg-brand-200 mx-0.5" aria-hidden="true" />}
-              </li>
-            ))}
-            <span className="ml-1 shrink-0 w-8 h-8 rounded-full bg-accent-50 text-accent-600 flex items-center justify-center" title="다시 1번으로 돌아가 반복" aria-hidden="true">
-              <Repeat size={16} />
-            </span>
-          </ol>
+          {/* 원형 순환 그림: 1→7을 한눈에, 7 다음에는 다시 1로 */}
+          <div className="relative w-full mx-auto" style={{ aspectRatio: `${W} / ${H}`, maxWidth: W }}>
+            <svg viewBox={`0 0 ${W} ${H}`} className="absolute inset-0 w-full h-full" aria-hidden="true">
+              <ellipse cx={CX} cy={CY} rx={RX} ry={RY} fill="none" className="stroke-brand-200" strokeWidth={3} strokeDasharray="2 6" strokeLinecap="round" />
+              {ARROWS.map((a, i) => (
+                <polygon
+                  key={i}
+                  points="-7,-6 7,0 -7,6"
+                  className="fill-brand-500"
+                  transform={`translate(${a.x} ${a.y}) rotate(${a.deg})`}
+                />
+              ))}
+            </svg>
 
-          <div className="mt-3 rounded-xl bg-white px-3.5 py-3">
-            <p className="text-xs font-bold text-brand-500">{sel + 1}단계 · {STEPS[sel].where}</p>
-            <p className="text-base font-bold text-gray-900 mt-0.5">{STEPS[sel].title}</p>
-            <p className="text-sm text-gray-600 mt-0.5">{STEPS[sel].desc}</p>
-            <button
-              type="button"
-              onClick={() => onGo(STEPS[sel].tab)}
-              className="mt-2.5 px-3.5 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold"
-            >
-              {STEPS[sel].where}(으)로 가기
-            </button>
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+              <Repeat size={26} className="mx-auto text-accent-600" aria-hidden="true" />
+              <p className="mt-1 text-sm font-bold text-brand-800 leading-tight">하루 3문장</p>
+              <p className="text-xs text-brand-700 leading-tight">계속 반복</p>
+            </div>
+
+            {STEPS.map((s, i) => {
+              const { x, y } = pointAt(angleOf(i));
+              return (
+                <button
+                  key={s.label}
+                  type="button"
+                  onClick={() => onGo(s.tab)}
+                  aria-label={`${i + 1}단계 ${s.label}: ${s.desc}`}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 flex items-center gap-1 h-11 pl-1.5 pr-2.5 rounded-full bg-white border border-brand-200 shadow-sm whitespace-nowrap active:bg-brand-50"
+                  style={{ left: `${(x / W) * 100}%`, top: `${(y / H) * 100}%` }}
+                >
+                  <span className="shrink-0 w-6 h-6 rounded-full bg-brand-600 text-white text-xs font-bold flex items-center justify-center">{i + 1}</span>
+                  <span className="text-sm font-bold text-gray-900">{s.label}</span>
+                </button>
+              );
+            })}
           </div>
-          <p className="mt-2 text-xs text-brand-700 text-center">7단계 후 다음 문장으로 다시 반복</p>
+          <p className="mt-1 text-xs text-brand-700 text-center">눌러서 해당 화면으로 갈 수도 있어요</p>
         </div>
       )}
     </section>
