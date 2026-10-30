@@ -26,7 +26,7 @@ export function NotebookModal({ sentences, words, history, onClose, onMaster, on
     return (
       <div key={it.id} className="relative bg-[#fffef8] border border-amber-200/80 rounded-lg px-4 py-3 shadow-sm" style={{ backgroundImage: "repeating-linear-gradient(transparent, transparent 27px, #f3f4f6 28px)" }}>
         {prev && <span className="absolute top-2 right-2 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-bold">이전 학습</span>}
-        <p className="text-sm font-semibold text-gray-900 leading-relaxed">{it.text}</p>
+        <p className={`text-sm font-semibold text-gray-900 leading-relaxed break-words ${prev ? "pr-14" : ""}`}>{it.text}</p>
         {it.meaning && <p className="text-xs text-gray-500 mt-1">{it.meaning}</p>}
         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-amber-100/80">
           <SpeakButton text={it.text} size={14} />
