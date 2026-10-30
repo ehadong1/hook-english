@@ -123,15 +123,15 @@ export default function App() {
   };
 
   const handleSaveWord = (v: Sentence, sentence: Sentence) => {
-    if (store.items.some((i) => i.type === "word" && i.text === v.word)) { setToast("이미 단어장에 있어요"); return; }
+    if (store.items.some((i) => i.type === "word" && i.text === v.word)) { setToast("이미 나만의 영어노트에 있어요"); return; }
     addItem({ type: "word", text: v.word, meaning: v.meaning, sourceId: sentence.id });
-    setToast(`'${v.word}' 단어장에 저장되었습니다`);
+    setToast(`'${v.word}' 나만의 영어노트에 저장되었습니다`);
   };
 
   const handleSaveSentence = (s: Sentence) => {
     if (savedIds.has(s.id)) return;
     addItem({ type: "sentence", text: s.text, meaning: s.translation, sourceId: s.id });
-    setToast("내 문장고에 저장되었습니다");
+    setToast("나만의 영어노트에 저장되었습니다");
     const weaknesses = profile?.weaknesses || [profile?.weakness].filter(Boolean);
     const target = WEAKNESS_TO_TAB[weaknesses[0]] || "main";
     setTab(target === "main" ? "training" : (target as TabKey));
@@ -228,7 +228,7 @@ export default function App() {
         <HookWordmark size="sm" showSubtitle={false} />
         <div className="flex items-center gap-1">
           <button type="button" aria-label="음성 설정" onClick={() => setModal("voice")} className="p-2 text-gray-500"><Settings size={20} /></button>
-          <button type="button" aria-label="내 문장 수집첩 열기" onClick={() => setModal("notebook")} className="relative p-2 text-gray-500">
+          <button type="button" aria-label="나만의 영어노트 열기" onClick={() => setModal("notebook")} className="relative p-2 text-gray-500">
             <Notebook size={19} />{(savedSentences.length + savedWords.length) > 0 && <Badge n={savedSentences.length + savedWords.length} />}
           </button>
         </div>

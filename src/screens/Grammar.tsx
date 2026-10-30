@@ -226,7 +226,7 @@ export function SentenceDissection({ sentence, history, onSaveWord, defaultOpen 
                 </button>
               ))}
             </div>
-            <p className="text-xs text-gray-500 mt-2">③ 단어를 누르면 내 단어장에 저장돼요</p>
+            <p className="text-xs text-gray-500 mt-2">③ 단어를 누르면 나만의 영어노트에 저장돼요</p>
             <p className="text-xs text-gray-500 mt-1">분야 표기는 AI·편집자 분류이며, 실제 빈도 순위(상위 %)는 검증된 말뭉치 데이터를 붙이기 전까지 표시하지 않아요.</p>
           </div>
 

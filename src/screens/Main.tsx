@@ -387,7 +387,7 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
         disabled={savedIds.has(s.id)}
         className={`w-full mt-4 py-3.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 ${savedIds.has(s.id) ? "bg-gray-100 text-gray-500" : "bg-brand-600 text-white"}`}
       >
-        {savedIds.has(s.id) ? <><Check size={15} /> 저장됨</> : <><Star size={15} /> 문장고에 저장하고 훈련 시작</>}
+        {savedIds.has(s.id) ? <><Check size={15} /> 저장됨</> : <><Star size={15} /> 나만의 영어노트에 저장하고 훈련 시작</>}
       </button>
     </div>
   );

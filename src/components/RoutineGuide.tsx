@@ -1,18 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, ChevronDown, ChevronUp, Repeat, Target } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronUp, Pause, Play, RotateCcw, Repeat, SkipForward, Target } from "lucide-react";
 
 export type TabKey = "main" | "training" | "scoring" | "review" | "roleplay";
 
 type Step = { title: string; desc: string };
 
-// Hook English의 반복 학습 루틴. 1~4: 학습(새 문장 익히기), 5~7: 반복(내 것으로 만들기)
+// Hook English의 반복 학습 루틴. 1~4: 학습(새 문장 익히기), 5~7: 반복(나만의 훅 만들기)
 const STEPS: Step[] = [
   { title: "알고 싶은 문장을 학습해요", desc: "한글로 쓰거나 추천 문장을 골라요" },
   { title: "원어민 표현·구조·문법을 이해해요", desc: "'구조 및 해설 보기'로 왜 이렇게 쓰는지 확인해요" },
   { title: "여러 번 읽고 따라 해요", desc: "듣고, 따라 말하고, 내 목소리와 비교해요" },
   { title: "일기나 문장 만들기로 써봐요", desc: "배운 문장을 내 상황에 넣어서 직접 써요" },
   { title: "실전 대화로 익혀요", desc: "저장한 문장을 대화 속에서 직접 말해요" },
-  { title: "시간이 지난 뒤 수집첩에서 복습해요", desc: "잊을 때쯤 복습 탭이 알려줘요" },
+  { title: "시간이 지난 뒤 나만의 영어노트에서 복습해요", desc: "잊을 때쯤 복습 탭이 알려줘요" },
   { title: "실전 대화에서 다시 활용해요", desc: "누적한 문장으로 더 길게 말해요" },
 ];
 const N = STEPS.length;
@@ -47,8 +47,12 @@ export function RoutineGuide({ savedCount }: { savedCount: number; onGo?: (tab: 
   const [leaving, setLeaving] = useState<number | null>(null); // 빠져나가는 카드
   const [snap, setSnap] = useState<number | null>(null); // 애니메이션 없이 맨 뒤로 보낼 카드
   const busy = useRef(false);
-  const pausedUntil = useRef(0);
   const reduceMotion = typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+  // 자동 재생은 한 바퀴(7장)만 돌고 멈춥니다. 움직임 줄이기 설정이면 처음부터 멈춰 있어요.
+  const [playing, setPlaying] = useState(!reduceMotion);
+  const [finished, setFinished] = useState(false);
+  const autoTicks = useRef(0);
 
   const advance = () => {
     if (busy.current) return;
@@ -63,22 +67,29 @@ export function RoutineGuide({ savedCount }: { savedCount: number; onGo?: (tab: 
     }, reduceMotion ? 0 : 560);
   };
 
-  // 자동으로 넘김 (움직임 줄이기 설정이면 자동 넘김 없음)
   const advanceRef = useRef(advance);
   advanceRef.current = advance;
   useEffect(() => {
-    if (!open || reduceMotion) return;
+    if (!open || !playing) return;
     const t = window.setInterval(() => {
-      if (Date.now() < pausedUntil.current) return;
       advanceRef.current();
+      autoTicks.current += 1;
+      if (autoTicks.current >= N) { setPlaying(false); setFinished(true); }
     }, AUTO_MS);
     return () => window.clearInterval(t);
-  }, [open, reduceMotion]);
+  }, [open, playing]);
 
-  const onDeckTap = () => {
-    pausedUntil.current = Date.now() + 7000;
-    advance();
+  const onPlayPause = () => {
+    if (finished) { // 다시 보기: 1번부터 한 바퀴 더
+      autoTicks.current = 0;
+      setFinished(false);
+      setCur(0);
+      setPlaying(true);
+      return;
+    }
+    setPlaying((p) => !p);
   };
+  const onNext = () => { setPlaying(false); advance(); };
 
   const pct = Math.min(100, Math.round((savedCount / GOAL) * 100));
   const deckH = CARD_H + (N - 1) * STRIP;
@@ -111,16 +122,7 @@ export function RoutineGuide({ savedCount }: { savedCount: number; onGo?: (tab: 
           </ol>
 
           {/* 카드 줄: 맨 앞 카드가 지금 단계, 뒤로 2~7번이 차례로 줄서 있어요 */}
-          <div
-            role="button"
-            tabIndex={0}
-            aria-label="다음 단계 카드 보기"
-            onClick={onDeckTap}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onDeckTap(); } }}
-            className="relative w-full select-none cursor-pointer"
-            style={{ height: deckH }}
-            aria-hidden={false}
-          >
+          <div className="relative w-full select-none" style={{ height: deckH }}>
             {STEPS.map((s, i) => {
               const d = (i - cur + N) % N;
               const isLeaving = leaving === i;
@@ -128,7 +130,8 @@ export function RoutineGuide({ savedCount }: { savedCount: number; onGo?: (tab: 
               const transform = isLeaving
                 ? "translateY(70px) scale(0.92)"
                 : `translateY(${-d * STRIP}px) scale(${1 - d * 0.03})`;
-              const opacity = isLeaving ? 0 : d === 0 ? 1 : Math.max(0.72 - d * 0.08, 0.3);
+              const opacity = isLeaving ? 0 : 1; // 카드는 항상 불투명(아래 카드 글자가 비치지 않게)
+              const fade = d === 0 ? 0 : Math.min(0.28 + d * 0.09, 0.72); // 뒤로 갈수록 흰색 막을 덮어 흐리게
               return (
                 <div
                   key={i}
@@ -146,13 +149,32 @@ export function RoutineGuide({ savedCount }: { savedCount: number; onGo?: (tab: 
                 >
                   <div className="flex items-center gap-2">
                     <span className="shrink-0 w-[22px] h-[22px] rounded-full text-white text-[13px] font-bold flex items-center justify-center" style={{ background: col }}>{i + 1}</span>
-                    <span className="flex-1 text-[15px] font-bold text-gray-900 leading-snug">{s.title}</span>
+                    <span className={`flex-1 min-w-0 text-[15px] font-bold text-gray-900 leading-snug ${d === 0 ? "" : "truncate"}`}>{s.title}</span>
                     <span className="shrink-0 text-xs font-bold" style={{ color: col }}>{tagOf(i)}</span>
                   </div>
-                  <p className="mt-3 ml-[30px] text-sm leading-snug text-gray-600">{s.desc}</p>
+                  {d === 0 && <p className="mt-3 ml-[30px] text-sm leading-snug text-gray-600">{s.desc}</p>}
+                  {fade > 0 && <span className="absolute inset-0 rounded-xl bg-white pointer-events-none" style={{ opacity: fade }} />}
                 </div>
               );
             })}
+          </div>
+
+          {/* 재생 조절: 자동 재생은 한 바퀴만 돌고 멈춰요 */}
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={onPlayPause}
+              className="flex-1 min-h-[44px] rounded-xl bg-white border border-brand-200 text-sm font-semibold text-brand-800 flex items-center justify-center gap-1.5 active:bg-brand-50"
+            >
+              {finished ? <><RotateCcw size={16} /> 다시 보기</> : playing ? <><Pause size={16} /> 멈춤</> : <><Play size={16} /> 재생</>}
+            </button>
+            <button
+              type="button"
+              onClick={onNext}
+              className="flex-1 min-h-[44px] rounded-xl bg-brand-600 text-sm font-semibold text-white flex items-center justify-center gap-1.5 active:bg-brand-700"
+            >
+              다음 <SkipForward size={16} />
+            </button>
           </div>
 
           {/* 학습 → 반복 진행 바 */}
@@ -167,7 +189,7 @@ export function RoutineGuide({ savedCount }: { savedCount: number; onGo?: (tab: 
             </div>
             <div className="flex items-center text-gray-500" aria-hidden="true"><ArrowRight size={16} /></div>
             <div className="rounded-lg px-2 py-1.5" style={{ flex: N - LEARN, background: REPEAT_SOFT }}>
-              <p className="text-xs font-bold mb-1" style={{ color: REPEAT_COLOR }}>반복 · 내 것으로 만들기</p>
+              <p className="text-xs font-bold mb-1" style={{ color: REPEAT_COLOR }}>반복 · 나만의 훅 만들기</p>
               <div className="flex gap-1">
                 {STEPS.slice(LEARN).map((_, j) => (
                   <span key={j} className="flex-1 h-2 rounded" style={{ background: j + LEARN === cur ? REPEAT_COLOR : "#e3cfa3" }} />
