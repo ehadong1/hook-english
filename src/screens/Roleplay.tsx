@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MessageCircle, Sparkles, Send, Lightbulb, Check, RotateCcw, Loader2 } from "lucide-react";
+import { MessageCircle, Sparkles, Send, Lightbulb, Check, RotateCcw, Loader2, Mic, Square } from "lucide-react";
 import { SpeakButton } from "../components/common";
+import { createRecognizer, isSTTSupported } from "../lib/speech";
 import { getRoleplayScene } from "../lib/personalization";
 import { callLlmRoleplay, type RoleplayMessage, type RoleplayResult } from "../lib/llmProvider";
 import { describeLlmFailure } from "../lib/translate";
@@ -45,6 +46,32 @@ export function RoleplayTab({ savedSentences, profile }: { savedSentences: Saved
   const [showHint, setShowHint] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const recRef = useRef<any>(null);
+  const [listening, setListening] = useState(false);
+  const [micError, setMicError] = useState<string | null>(null);
+  const sttOk = typeof window !== "undefined" && isSTTSupported();
+
+  const toggleMic = () => {
+    if (listening) { recRef.current?.stop(); return; }
+    const r = createRecognizer("en-US");
+    if (!r) return;
+    setMicError(null);
+    recRef.current = r;
+    r.onresult = (e: any) => {
+      let text = "";
+      for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
+      setInput(text.slice(0, 300));
+    };
+    r.onerror = (e: any) => {
+      setMicError(e?.error === "not-allowed" ? "마이크 권한이 꺼져 있어요. 브라우저 주소창의 마이크 설정에서 허용해 주세요." : "음성을 인식하지 못했어요. 다시 눌러 말해 주세요.");
+      setListening(false);
+    };
+    r.onend = () => setListening(false);
+    setListening(true);
+    r.start();
+  };
+
+  useEffect(() => () => { recRef.current?.abort?.(); }, []);
 
   const userTurns = turns.filter((t) => t.from === "user").length;
   const finished = started && userTurns >= MAX_USER_TURNS && !loading;
@@ -220,10 +247,25 @@ export function RoleplayTab({ savedSentences, profile }: { savedSentences: Saved
                   maxLength={300}
                   className="flex-1 px-3.5 py-2.5 rounded-xl bg-gray-100 text-sm outline-none focus:ring-2 focus:ring-brand-300 disabled:opacity-60"
                 />
+                {sttOk && (
+                  <button
+                    type="button"
+                    aria-label={listening ? "음성 입력 멈추기" : "음성으로 입력하기"}
+                    aria-pressed={listening}
+                    onClick={toggleMic}
+                    disabled={loading}
+                    className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 disabled:opacity-50 ${listening ? "bg-rose-500 text-white animate-pulse" : "bg-brand-50 text-brand-700 border border-brand-100"}`}
+                  >
+                    {listening ? <Square size={16} /> : <Mic size={18} />}
+                  </button>
+                )}
                 <button type="button" aria-label="보내기" onClick={send} disabled={loading || !input.trim()} className="w-11 h-11 rounded-xl bg-brand-600 text-white flex items-center justify-center shrink-0 disabled:opacity-50">
                   <Send size={16} />
                 </button>
               </div>
+              {listening && <p className="text-xs text-rose-600 font-semibold mt-2" aria-live="polite">듣고 있어요. 영어로 말씀하세요. 끝나면 사각형 버튼을 누르세요.</p>}
+              {micError && <p className="text-xs text-amber-800 bg-amber-50 rounded-lg px-3 py-2 mt-2">{micError}</p>}
+              {!sttOk && <p className="text-xs text-gray-500 mt-2">이 브라우저는 음성 입력을 지원하지 않아요. 크롬이나 사파리에서 열어 보세요.</p>}
               <p className="text-xs text-gray-500 mt-2">{userTurns}/{MAX_USER_TURNS}번 말했어요 · 막히면 위의 힌트를 눌러보세요</p>
             </>
           )}

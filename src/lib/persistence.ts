@@ -146,6 +146,45 @@ export async function insertHistoryRemote(deviceId: string | null, entry: Histor
   if (error) console.warn("[Hook English] 학습 이력 저장 실패:", error.message);
 }
 
+export type PhraseBankEntry = {
+  id: string;
+  grammarKey: string;
+  english: string;
+  korean: string;
+  note?: string;
+  tone?: string;
+  sourceUrl?: string;
+};
+
+/**
+ * 검수 완료(approved)된 표현 뱅크에서, 해당 문법 키와 맞는 최신 표현을 가져옵니다.
+ * (Exa로 계속 수집되는 원어민 비즈니스 표현 → "원어민은 이렇게도 말해요"에 사용)
+ * 실패하거나 비어 있으면 빈 배열을 돌려주고, 화면은 해당 영역을 그냥 숨깁니다.
+ */
+export async function fetchPhraseBank(grammarKeys: string[], limit = 3): Promise<PhraseBankEntry[]> {
+  if (!supabase || grammarKeys.length === 0) return [];
+  const { data, error } = await supabase
+    .from("hook_phrase_bank")
+    .select("id, grammar_key, english, korean_meaning, note, tone, source_url")
+    .eq("status", "approved")
+    .in("grammar_key", grammarKeys)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error || !data) {
+    if (error) console.warn("[Hook English] 표현 뱅크 로드 실패:", error.message);
+    return [];
+  }
+  return data.map((row: any) => ({
+    id: row.id,
+    grammarKey: row.grammar_key,
+    english: row.english,
+    korean: row.korean_meaning,
+    note: row.note || undefined,
+    tone: row.tone || undefined,
+    sourceUrl: row.source_url || undefined,
+  }));
+}
+
 /**
  * 검수 완료(approved)된 최신 뉴스 문장을 가져옵니다. bankTopics는 App.tsx의
  * TOPIC_TO_BANK 값들(예: "비즈니스/IT 트렌드")이어야 합니다. 실패하거나

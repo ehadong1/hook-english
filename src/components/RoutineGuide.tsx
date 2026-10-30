@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Target } from "lucide-react";
+import { ChevronDown, ChevronUp, Repeat, Target } from "lucide-react";
 
 export type TabKey = "main" | "training" | "scoring" | "review" | "roleplay";
 
@@ -7,26 +7,36 @@ type Step = { title: string; desc: string; tab: TabKey; where: string };
 
 // Hook English의 반복 학습 루틴. 앱의 모든 기능이 이 순서에 맞춰 배치되어 있습니다.
 const STEPS: Step[] = [
-  { title: "알고 싶은 문장을 학습해요", desc: "한글로 쓰거나 추천 문장을 골라요", tab: "main", where: "메인" },
-  { title: "원어민 표현·구조·문법을 이해해요", desc: "'구조 및 해설 보기'로 왜 이렇게 쓰는지 확인해요", tab: "main", where: "메인" },
-  { title: "여러 번 읽고 따라 해요", desc: "듣고, 따라 말하고, 내 목소리와 비교해요", tab: "training", where: "리스닝·발음" },
-  { title: "일기나 문장 만들기로 써봐요", desc: "배운 문장을 내 상황에 넣어서 직접 써요", tab: "main", where: "메인 > 학습 메뉴" },
-  { title: "실전 대화로 익혀요", desc: "저장한 문장을 대화 속에서 직접 말해요", tab: "roleplay", where: "실전대화" },
-  { title: "시간이 지난 뒤 수집첩에서 복습해요", desc: "잊을 때쯤 복습 탭이 알려줘요", tab: "review", where: "복습" },
-  { title: "실전 대화에서 다시 활용해요", desc: "누적한 문장으로 더 길게 말해요", tab: "roleplay", where: "실전대화" },
+  { title: "문장 고르기", desc: "알고 싶은 문장 입력·선택", tab: "main", where: "메인" },
+  { title: "이해하기", desc: "원어민 표현 · 구조 · 문법", tab: "main", where: "메인" },
+  { title: "따라 읽기", desc: "듣고 · 말하고 · 반복", tab: "training", where: "리스닝" },
+  { title: "써 보기", desc: "일기 · 문장 만들기", tab: "main", where: "메인" },
+  { title: "대화하기", desc: "실전 대화로 말해 보기", tab: "roleplay", where: "실전대화" },
+  { title: "복습하기", desc: "수집한 문장 다시 보기", tab: "review", where: "복습" },
+  { title: "다시 쓰기", desc: "실전 대화에서 재활용", tab: "roleplay", where: "실전대화" },
 ];
 
 const GOAL = 1000;
 
 export function RoutineGuide({ savedCount, onGo }: { savedCount: number; onGo: (tab: TabKey) => void }) {
-  const [open, setOpen] = useState(false);
+  // 처음 방문하면 순서를 펼쳐서 보여주고, 한 번 닫으면 다음부터는 접어 둡니다.
+  const [open, setOpen] = useState(() => {
+    try { return localStorage.getItem("hook_guide_seen") !== "1" && savedCount === 0; } catch { return false; }
+  });
+  const toggle = () => {
+    setOpen((o) => {
+      if (o) { try { localStorage.setItem("hook_guide_seen", "1"); } catch { /* 무시 */ } }
+      return !o;
+    });
+  };
+  const [sel, setSel] = useState(0);
   const pct = Math.min(100, Math.round((savedCount / GOAL) * 100));
 
   return (
     <section className="mt-3 rounded-2xl border border-brand-100 bg-brand-50/60 p-3.5" aria-label="Hook 학습 루틴">
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         aria-expanded={open}
         className="w-full flex items-center gap-2 text-left"
       >
@@ -45,24 +55,44 @@ export function RoutineGuide({ savedCount, onGo }: { savedCount: number; onGo: (
       </div>
 
       {open && (
-        <ol className="mt-3 space-y-1.5">
-          {STEPS.map((s, i) => (
-            <li key={i}>
-              <button
-                type="button"
-                onClick={() => onGo(s.tab)}
-                className="w-full flex items-start gap-2.5 rounded-xl bg-white px-3 py-2.5 text-left active:bg-brand-50"
-              >
-                <span className="shrink-0 w-6 h-6 rounded-full bg-brand-600 text-white text-xs font-bold flex items-center justify-center">{i + 1}</span>
-                <span className="flex-1">
-                  <span className="block text-sm font-semibold text-gray-900">{s.title}</span>
-                  <span className="block text-xs text-gray-500 mt-0.5">{s.desc}</span>
-                </span>
-                <span className="shrink-0 text-xs text-brand-500 font-semibold mt-0.5">{s.where}</span>
-              </button>
-            </li>
-          ))}
-        </ol>
+        <div className="mt-3">
+          {/* 가로 단계 바: 1~7을 한 줄로, 끝에서 다시 1로 돌아가는 순환 표시 */}
+          <ol className="flex items-center" aria-label="학습 7단계">
+            {STEPS.map((s, i) => (
+              <li key={i} className="flex items-center flex-1 last:flex-none">
+                <button
+                  type="button"
+                  onClick={() => setSel(i)}
+                  aria-label={`${i + 1}단계 ${s.title}`}
+                  aria-current={sel === i ? "step" : undefined}
+                  className={`shrink-0 w-10 h-10 rounded-full text-sm font-bold flex items-center justify-center border-2 transition ${
+                    sel === i ? "bg-brand-600 border-brand-600 text-white scale-110" : "bg-white border-brand-200 text-brand-700"
+                  }`}
+                >
+                  {i + 1}
+                </button>
+                {i < STEPS.length - 1 && <span className="flex-1 h-0.5 bg-brand-200 mx-0.5" aria-hidden="true" />}
+              </li>
+            ))}
+            <span className="ml-1 shrink-0 w-8 h-8 rounded-full bg-accent-50 text-accent-600 flex items-center justify-center" title="다시 1번으로 돌아가 반복" aria-hidden="true">
+              <Repeat size={16} />
+            </span>
+          </ol>
+
+          <div className="mt-3 rounded-xl bg-white px-3.5 py-3">
+            <p className="text-xs font-bold text-brand-500">{sel + 1}단계 · {STEPS[sel].where}</p>
+            <p className="text-base font-bold text-gray-900 mt-0.5">{STEPS[sel].title}</p>
+            <p className="text-sm text-gray-600 mt-0.5">{STEPS[sel].desc}</p>
+            <button
+              type="button"
+              onClick={() => onGo(STEPS[sel].tab)}
+              className="mt-2.5 px-3.5 py-2 rounded-lg bg-brand-600 text-white text-sm font-semibold"
+            >
+              {STEPS[sel].where}(으)로 가기
+            </button>
+          </div>
+          <p className="mt-2 text-xs text-brand-700 text-center">7단계 후 다음 문장으로 다시 반복</p>
+        </div>
       )}
     </section>
   );

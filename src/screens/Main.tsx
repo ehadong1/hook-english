@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
 import { Mic, Check, X, ChevronDown, Star, Sparkles, Languages, Loader2, Newspaper, PenLine, Notebook, ChevronUp } from "lucide-react";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import { fetchNewsSentences } from "../lib/persistence";
@@ -288,16 +288,19 @@ export function HookWordmark({ size = "md", showSubtitle = true }) {
   );
 }
 
-export function SentenceList({ sentences, activeId, onSelect, badge }: { sentences: Sentence[]; activeId?: string; onSelect: (s: Sentence) => void; badge?: string }) {
-  if (!sentences.length) return <p className="text-xs text-gray-400 text-center py-6">표시할 문장이 없어요.</p>;
+export function SentenceList({ sentences, activeId, onSelect, badge, renderDetail }: { sentences: Sentence[]; activeId?: string; onSelect: (s: Sentence) => void; badge?: string; renderDetail?: (s: Sentence) => ReactNode }) {
+  if (!sentences.length) return <p className="text-xs text-gray-500 text-center py-6">표시할 문장이 없어요.</p>;
   return (
     <div className="space-y-2">
       {sentences.map((s) => (
-        <button key={s.id} onClick={() => onSelect(s)} className={`w-full text-left p-3 rounded-xl border-2 ${activeId === s.id ? "border-brand-600 bg-brand-50" : "border-gray-100 bg-white"}`}>
-          {badge && <span className="text-xs text-brand-500 font-bold">{badge}</span>}
-          <p className="text-sm font-semibold text-gray-900">{s.text}</p>
-          <p className="text-xs text-gray-500 mt-0.5">{s.translation}</p>
-        </button>
+        <div key={s.id}>
+          <button onClick={() => onSelect(s)} aria-expanded={activeId === s.id} className={`w-full text-left p-3 rounded-xl border-2 ${activeId === s.id ? "border-brand-600 bg-brand-50" : "border-gray-100 bg-white"}`}>
+            {badge && <span className="text-xs text-brand-500 font-bold">{badge}</span>}
+            <p className="text-sm font-semibold text-gray-900">{s.text}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{s.translation}</p>
+          </button>
+          {activeId === s.id && renderDetail?.(s)}
+        </div>
       ))}
     </div>
   );
@@ -348,15 +351,68 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
   const autoOpen = weaknesses.includes("문법") || weaknesses.includes("문장 구성");
   const openMenu = (mode: string) => { setMenuMode(mode); setMenuOpen(true); };
 
+  // 문장을 고르면 그 문장 바로 아래에 해설이 열리고, 화면이 자동으로 그 위치로 내려갑니다.
+  const detailRef = useRef<HTMLDivElement>(null);
+  const activeId = activeSentence?.id;
+  useEffect(() => {
+    if (!activeId) return;
+    const t = setTimeout(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+    return () => clearTimeout(t);
+  }, [activeId]);
+
+  const listed = menuOpen
+    ? menuMode === "recommended" ? recommended : menuMode === "news" ? newsSentences : []
+    : [];
+  const inlineShown = !!activeSentence && listed.some((s) => s.id === activeSentence.id);
+
+  const activeCard = (s: Sentence) => (
+    <div ref={detailRef} className="mt-2 mb-1 bg-white border-2 border-brand-200 rounded-2xl p-4 scroll-mt-16">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-bold text-gray-500">학습 중인 문장</p>
+        {history.some((h) => h.sentenceId === s.id) && (
+          <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">이전 학습</span>
+        )}
+      </div>
+      <div className="flex justify-between items-start gap-2">
+        <div>
+          <p className="text-lg font-bold text-gray-900 leading-snug">{s.text}</p>
+          <p className="text-sm text-gray-600 mt-1">{s.translation}</p>
+          {s.originKo && <p className="text-xs text-gray-500 mt-1">원문: {s.originKo}</p>}
+        </div>
+        <SpeakButton text={s.text} size={20} />
+      </div>
+      <SentenceDissection sentence={s} history={history} onSaveWord={onSaveWord} defaultOpen={autoOpen} />
+      <button
+        onClick={() => onSaveSentence(s)}
+        disabled={savedIds.has(s.id)}
+        className={`w-full mt-4 py-3.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 ${savedIds.has(s.id) ? "bg-gray-100 text-gray-500" : "bg-brand-600 text-white"}`}
+      >
+        {savedIds.has(s.id) ? <><Check size={15} /> 저장됨</> : <><Star size={15} /> 문장고에 저장하고 훈련 시작</>}
+      </button>
+    </div>
+  );
+
   return (
     <div className="px-4 pb-6">
       <div className="pt-10 pb-7 text-center rounded-2xl bg-gradient-to-b from-[#f4f7fb] via-white to-white border border-[#e4ebf3] mb-1">
         <HookWordmark size="hero" />
+        <p className="mt-3 text-base font-bold text-brand-700">하루 3문장 비즈니스 영어</p>
       </div>
       <ComposerBox profile={profile} onStart={onStartCustom} minimal />
       <RoutineGuide savedCount={savedSentences.length} onGo={onGoTab} />
-      <button type="button" onClick={() => setMenuOpen((o) => !o)} className="w-full mt-5 py-2.5 text-xs text-brand-600 font-bold flex items-center justify-center gap-1">
-        {menuOpen ? <><ChevronUp size={14} /> 학습 메뉴 접기</> : <>학습 메뉴 보기 <ChevronDown size={14} /></>}
+      <button
+        type="button"
+        onClick={() => setMenuOpen((o) => !o)}
+        aria-expanded={menuOpen}
+        className="w-full mt-5 px-4 py-4 rounded-2xl border-2 border-brand-600 bg-white text-brand-700 shadow-sm active:bg-brand-50 flex items-center justify-between text-left"
+      >
+        <span>
+          <span className="block text-base font-extrabold">{menuOpen ? "학습 메뉴 접기" : "학습 메뉴 펼치기"}</span>
+          <span className="block text-xs text-gray-500 mt-0.5">추천 3문장 · 뉴스 3문장 · 일기 쓰기 · 문장 만들기</span>
+        </span>
+        <span className="shrink-0 w-9 h-9 rounded-full bg-brand-600 text-white flex items-center justify-center">
+          {menuOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+        </span>
       </button>
       {menuOpen && (
         <>
@@ -366,38 +422,13 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
             <button onClick={() => openMenu("diary")} className="p-3 rounded-2xl bg-amber-50 border border-amber-100 text-left"><PenLine size={16} className="text-amber-600 mb-1" /><p className="text-xs font-bold text-amber-800">오늘의 일기 쓰기</p></button>
             <button onClick={() => openMenu("compose")} className="p-3 rounded-2xl bg-emerald-50 border border-emerald-100 text-left"><Notebook size={16} className="text-emerald-600 mb-1" /><p className="text-xs font-bold text-emerald-800">문장 만들어 보기</p></button>
           </div>
-          {menuMode === "recommended" && <div className="mt-4"><p className="text-xs font-bold text-gray-400 mb-2">맞춤 추천 {recommended.length}문장</p><SentenceList sentences={recommended} activeId={activeSentence?.id} onSelect={setActiveSentence} /></div>}
-          {menuMode === "news" && <div className="mt-4"><p className="text-xs font-bold text-gray-400 mb-2">최신 뉴스 기반 3문장</p><SentenceList sentences={newsSentences} activeId={activeSentence?.id} onSelect={setActiveSentence} badge="NEWS" /></div>}
+          {menuMode === "recommended" && <div className="mt-4"><p className="text-xs font-bold text-gray-500 mb-2">내 설문(수준·업무 분야·말투)에 맞춘 추천 {recommended.length}문장</p><SentenceList sentences={recommended} activeId={activeSentence?.id} onSelect={setActiveSentence} renderDetail={activeCard} /></div>}
+          {menuMode === "news" && <div className="mt-4"><p className="text-xs font-bold text-gray-500 mb-2">내가 고른 업무 분야의 최신 뉴스 기반 {newsSentences.length}문장</p><SentenceList sentences={newsSentences} activeId={activeSentence?.id} onSelect={setActiveSentence} badge="NEWS" renderDetail={activeCard} /></div>}
           {(menuMode === "diary" || menuMode === "compose") && <WritingPractice profile={profile} mode={menuMode} savedSentences={savedSentences} onClose={() => setMenuMode(null)} />}
         </>
       )}
 
-      {activeSentence && (
-        <div className="mt-6 bg-white border border-gray-100 rounded-2xl p-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-bold text-gray-400">학습 중인 문장</p>
-            {history.some((h) => h.sentenceId === activeSentence.id) && (
-              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">이전 학습</span>
-            )}
-          </div>
-          <div className="flex justify-between items-start gap-2">
-            <div>
-              <p className="text-lg font-bold text-gray-900 leading-snug">{activeSentence.text}</p>
-              <p className="text-xs text-gray-500 mt-1">{activeSentence.translation}</p>
-              {activeSentence.originKo && <p className="text-xs text-gray-400 mt-1">원문: {activeSentence.originKo}</p>}
-            </div>
-            <SpeakButton text={activeSentence.text} size={20} />
-          </div>
-          <SentenceDissection sentence={activeSentence} history={history} onSaveWord={onSaveWord} defaultOpen={autoOpen} />
-          <button
-            onClick={() => onSaveSentence(activeSentence)}
-            disabled={savedIds.has(activeSentence.id)}
-            className={`w-full mt-4 py-3.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-1.5 ${savedIds.has(activeSentence.id) ? "bg-gray-100 text-gray-400" : "bg-brand-600 text-white"}`}
-          >
-            {savedIds.has(activeSentence.id) ? <><Check size={15} /> 저장됨</> : <><Star size={15} /> 문장고에 저장하고 훈련 시작</>}
-          </button>
-        </div>
-      )}
+      {activeSentence && !inlineShown && <div className="mt-6">{activeCard(activeSentence)}</div>}
     </div>
   );
 }

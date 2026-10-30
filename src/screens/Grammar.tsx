@@ -1,9 +1,23 @@
 import { useState, useEffect, useMemo } from "react";
 import { BookOpen, ChevronDown, Info } from "lucide-react";
 import { BottomSheet, SpeakButton } from "../components/common";
-import { GRAMMAR_LIBRARY, detectGrammarKeysFromText, explainGrammarInSentence, highlightGrammarMatch } from "../data/grammar";
-import { findPastGrammarCases } from "../lib/personalization";
+import { GRAMMAR_LIBRARY, detectGrammarKeysFromText, explainGrammarInSentence, findGrammarMatch, highlightGrammarMatch } from "../data/grammar";
+import { findPastGrammarCases as rawPastCases } from "../lib/personalization";
+import { fetchPhraseBank, type PhraseBankEntry } from "../lib/persistence";
 import type { HistoryItem, Sentence } from "../types";
+
+// "지난번에 본 문장"은 실제로 그 문법 패턴이 문장 안에 있을 때만 보여줍니다.
+// (예전에는 문장에 붙은 태그만 보고 골라서, 관련 없는 문장이 뜰 수 있었어요.)
+function findPastGrammarCases(key: string, history: HistoryItem[], currentId: string) {
+  return rawPastCases(key, history, currentId).filter((h) => !!findGrammarMatch(key, h.text));
+}
+
+// 빈도 표기: 실제 말뭉치로 검증하지 않은 "상위 N%"는 보여주지 않고 쓰이는 분야만 표시합니다.
+function fieldLabel(freq?: string): string {
+  const f = (freq || "").replace(/상위\s*\d+\s*%/g, "").replace(/[·]/g, " ").replace(/\s+/g, " ").trim();
+  if (!f || f === "GPT 분석" || f === "빈도 데이터 없음") return "비즈니스 표현";
+  return /(어휘|동사|표현|관용구)$/.test(f) ? f : `${f} 표현`;
+}
 
 /* ============================================================================
    SECTION 9. 문법 상세 시트 + 문장 해부
@@ -120,6 +134,22 @@ export function SentenceDissection({ sentence, history, onSaveWord, defaultOpen 
     : (detectedKeys.length > 0 ? detectedKeys.slice(0, 2) : (reviewKey ? [reviewKey] : []));
   const isReview = validKeys.length === 0 && detectedKeys.length === 0 && displayKeys.length > 0;
 
+  // 표현 뱅크(Exa로 계속 수집·검수되는 원어민 표현)에서 같은 문법의 최신 표현을 가져옵니다.
+  const [live, setLive] = useState<PhraseBankEntry[]>([]);
+  const keysSig = displayKeys.join(",");
+  useEffect(() => {
+    if (!open || !keysSig) { setLive([]); return; }
+    let cancelled = false;
+    fetchPhraseBank(keysSig.split(","), 3).then((r) => { if (!cancelled) setLive(r.filter((p) => p.english.trim().toLowerCase() !== sentence.text.trim().toLowerCase())); });
+    return () => { cancelled = true; };
+  }, [open, keysSig, sentence.text]);
+
+  // "원어민들은 이렇게도 표현해요": 기본 대안 표현 + 최근 수집·검수된 표현(최신 배지)을 한 목록으로
+  const altItems = [
+    ...live.map((p) => ({ key: `live-${p.id}`, en: p.english, ko: p.korean, note: p.note, url: p.sourceUrl, fresh: true })),
+    ...((sentence.nativeAlternatives || []) as Sentence[]).map((a, i) => ({ key: `alt-${i}`, en: String(a.en), ko: String(a.ko), note: a.note as string | undefined, url: undefined as string | undefined, fresh: false })),
+  ];
+
   return (
     <div className="mt-3">
       <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-brand-50 text-brand-700 text-sm font-semibold">
@@ -184,7 +214,7 @@ export function SentenceDissection({ sentence, history, onSaveWord, defaultOpen 
           </div>
 
           <div className="bg-gray-50 rounded-xl p-3.5">
-            <p className="text-xs font-bold text-gray-400 mb-2">② 핵심 어휘 · 사용 빈도</p>
+            <p className="text-xs font-bold text-gray-500 mb-2">② 핵심 어휘 · 주로 쓰이는 분야</p>
             <div className="space-y-2">
               {sentence.vocab.map((v: Sentence) => (
                 <button key={v.word} onClick={() => onSaveWord(v, sentence)} className="w-full flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-gray-100 active:bg-brand-50">
@@ -192,25 +222,32 @@ export function SentenceDissection({ sentence, history, onSaveWord, defaultOpen 
                     <p className="text-sm font-semibold text-gray-900">{v.word}</p>
                     <p className="text-xs text-gray-500">{v.meaning}</p>
                   </div>
-                  <span className="text-xs text-brand-600 bg-brand-50 px-2 py-1 rounded-full font-medium shrink-0 ml-2">{v.freq}</span>
+                  <span className="text-xs text-brand-600 bg-brand-50 px-2 py-1 rounded-full font-medium shrink-0 ml-2">{fieldLabel(v.freq)}</span>
                 </button>
               ))}
             </div>
-            <p className="text-xs text-gray-400 mt-2">③ 단어를 누르면 내 단어장에 저장돼요</p>
+            <p className="text-xs text-gray-500 mt-2">③ 단어를 누르면 내 단어장에 저장돼요</p>
+            <p className="text-xs text-gray-500 mt-1">분야 표기는 AI·편집자 분류이며, 실제 빈도 순위(상위 %)는 검증된 말뭉치 데이터를 붙이기 전까지 표시하지 않아요.</p>
           </div>
 
-          {sentence.nativeAlternatives?.length > 0 && (
+          {altItems.length > 0 && (
             <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3.5">
               <p className="text-xs font-bold text-emerald-700 mb-2">④ 원어민들은 이렇게도 표현해요</p>
               <div className="space-y-2">
-                {sentence.nativeAlternatives.map((a: Sentence, i: number) => (
-                  <div key={i} className="bg-white rounded-lg p-3">
+                {altItems.map((a) => (
+                  <div key={a.key} className="bg-white rounded-lg p-3">
                     <div className="flex justify-between items-start gap-2">
-                      <p className="text-sm font-medium text-gray-900 leading-snug">{a.en}</p>
+                      <p className="text-sm font-medium text-gray-900 leading-snug">
+                        {a.fresh && <span className="mr-1.5 align-middle text-xs font-bold text-white bg-emerald-600 px-1.5 py-0.5 rounded-full">최신</span>}
+                        {a.en}
+                      </p>
                       <SpeakButton text={a.en} size={16} className="text-emerald-600" />
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">{a.ko}</p>
-                    <p className="text-xs text-emerald-600 mt-1.5">TIP · {a.note}</p>
+                    <p className="text-xs text-gray-600 mt-1">{a.ko}</p>
+                    {a.note && <p className="text-xs text-emerald-700 mt-1.5">TIP · {a.note}</p>}
+                    {a.url && (
+                      <a href={a.url} target="_blank" rel="noopener noreferrer" className="inline-block mt-1 text-xs text-gray-500 underline">출처 보기</a>
+                    )}
                   </div>
                 ))}
               </div>
