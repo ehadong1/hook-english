@@ -221,7 +221,7 @@ export function SentenceDissection({ sentence, history, onSaveWord, defaultOpen 
                   const tip = usageNote(v.freq);
                   return (
                     <button key={v.word} onClick={() => onSaveWord(v, sentence)} className="w-full flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-gray-100 active:bg-brand-50">
-                      <div className="text-left min-w-0">
+                      <div className="text-left min-w-0 flex-1 break-words">
                         <p className="text-sm font-semibold text-gray-900">
                           {v.word}
                           {v.pos && <span className="ml-2 align-middle text-[11px] text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded font-medium">{v.pos}</span>}

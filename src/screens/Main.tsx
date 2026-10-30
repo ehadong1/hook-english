@@ -155,7 +155,7 @@ export function WritingPractice({ profile, mode, savedSentences, onClose }: { pr
   );
 }
 
-export function ComposerBox({ profile, onStart, minimal = false }: { profile: Profile; onStart: (english: string, originKo: string | null, meta?: Sentence) => void; minimal?: boolean }) {
+export function ComposerBox({ profile, onStart, minimal = false, onSubmit }: { profile: Profile; onStart: (english: string, originKo: string | null, meta?: Sentence) => void; minimal?: boolean; onSubmit?: () => void }) {
   const [text, setText] = useState("");
   const [listening, setListening] = useState(false);
   const [translating, setTranslating] = useState(false);
@@ -178,6 +178,7 @@ export function ComposerBox({ profile, onStart, minimal = false }: { profile: Pr
   const handleGo = async () => {
     const t = text.trim();
     if (!t) return;
+    onSubmit?.(); // 새 문장을 입력하면 이전에 보던 문장·목록은 화면에서 치웁니다
     if (containsKorean(t)) {
       setTranslating(true);
       const r = await translateKoreanToEnglish(t, profile);
@@ -253,8 +254,8 @@ export function ComposerBox({ profile, onStart, minimal = false }: { profile: Pr
             </div>
           )}
 
-          <button onClick={() => onStart(result.english, text.trim(), result)} className="w-full mt-3 py-2.5 rounded-xl bg-brand-600 text-white text-sm font-semibold">
-            이 문장으로 학습 시작
+          <button onClick={() => { onStart(result.english, text.trim(), result); setResult(null); }} className="w-full mt-3 py-2.5 rounded-xl bg-brand-600 text-white text-sm font-semibold">
+            이 문장 해설 보기 (구조·단어·표현)
           </button>
         </div>
       )}
@@ -412,7 +413,7 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
         <HookWordmark size="hero" />
         <p className="mt-3 text-base font-bold text-brand-700">하루 3문장 비즈니스 영어</p>
       </div>
-      <ComposerBox profile={profile} onStart={onStartCustom} minimal />
+      <ComposerBox profile={profile} onStart={onStartCustom} minimal onSubmit={() => { setMenuMode(null); setActiveSentence(null); }} />
       <RoutineGuide savedCount={savedSentences.length} onGo={onGoTab} onOpenNotes={onOpenNotes} />
       {menuOpen && (
         <>

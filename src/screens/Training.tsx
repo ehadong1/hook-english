@@ -86,9 +86,9 @@ export function FadingTrainer({ sentence }: { sentence: Sentence }) {
         <p className="text-xs font-bold text-gray-400">Fading 암기 훈련</p>
         <span className="text-xs text-brand-600 font-semibold">{Math.round(percents[stage] * 100)}% 가림</span>
       </div>
-      <p className="text-base leading-relaxed font-medium text-gray-900 min-h-[3.5rem]">
+      <p className="text-base leading-relaxed font-medium text-gray-900 min-h-[3.5rem] break-words">
         {words.map((w: string, i: number) => (
-          <span key={i} className={`mr-1.5 ${blanked.has(i) ? "text-brand-300" : ""}`}>{blanked.has(i) ? "____" : w}</span>
+          <span key={i} className={`mr-1.5 inline-block max-w-full ${blanked.has(i) ? "text-brand-300" : ""}`}>{blanked.has(i) ? "_".repeat(Math.min(Math.max(w.length, 2), 8)) : w}</span>
         ))}
       </p>
       <button onClick={() => setRunning((r) => !r)} className={`mt-2 w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-sm font-semibold ${running ? "bg-gray-100 text-gray-600" : "bg-brand-600 text-white"}`}>
@@ -107,8 +107,8 @@ export function TrainingTab({ sentence, voice }: { sentence: Sentence; voice?: S
         <p className="text-lg font-bold leading-snug">{sentence.text}</p>
         <p className="text-xs opacity-70 mt-1">{sentence.translation}</p>
       </div>
-      <InfiniteListening text={sentence.text} voice={voice} />
       <FadingTrainer sentence={sentence} />
+      <InfiniteListening text={sentence.text} voice={voice} />
       <SoundBreakdown sentence={sentence} />
     </div>
   );
