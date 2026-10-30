@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, ChevronDown, ChevronUp, Pause, Play, RotateCcw, Repeat, SkipForward, Target } from "lucide-react";
+import { ChevronDown, ChevronUp, Repeat, Target } from "lucide-react";
 
 export type TabKey = "main" | "training" | "scoring" | "review" | "roleplay";
 
@@ -21,8 +21,6 @@ const LEARN = 4; // 앞의 4단계는 '학습', 나머지는 '반복'
 const GOAL = 1000;
 const LEARN_COLOR = "#1a3556"; // 남색
 const REPEAT_COLOR = "#8a6420"; // 황동(글자 대비를 위해 어둡게)
-const LEARN_SOFT = "#e6edf6";
-const REPEAT_SOFT = "#f6ecda";
 
 const CARD_H = 104; // px
 const STRIP = 28; // 뒤 카드가 보이는 간격(px)
@@ -68,7 +66,7 @@ export function RoutineGuide({ savedCount }: { savedCount: number; onGo?: (tab: 
   };
 
   const advanceRef = useRef(advance);
-  advanceRef.current = advance;
+  useEffect(() => { advanceRef.current = advance; });
   useEffect(() => {
     if (!open || !playing) return;
     const t = window.setInterval(() => {
@@ -79,8 +77,9 @@ export function RoutineGuide({ savedCount }: { savedCount: number; onGo?: (tab: 
     return () => window.clearInterval(t);
   }, [open, playing]);
 
-  const onPlayPause = () => {
-    if (finished) { // 다시 보기: 1번부터 한 바퀴 더
+  // 카드를 터치하면 멈추고, 다시 터치하면 다시 움직여요. 한 바퀴가 끝난 뒤에 터치하면 처음부터 다시 보여줘요.
+  const onDeckTap = () => {
+    if (finished) {
       autoTicks.current = 0;
       setFinished(false);
       setCur(0);
@@ -89,7 +88,6 @@ export function RoutineGuide({ savedCount }: { savedCount: number; onGo?: (tab: 
     }
     setPlaying((p) => !p);
   };
-  const onNext = () => { setPlaying(false); advance(); };
 
   const pct = Math.min(100, Math.round((savedCount / GOAL) * 100));
   const deckH = CARD_H + (N - 1) * STRIP;
@@ -122,7 +120,15 @@ export function RoutineGuide({ savedCount }: { savedCount: number; onGo?: (tab: 
           </ol>
 
           {/* 카드 줄: 맨 앞 카드가 지금 단계, 뒤로 2~7번이 차례로 줄서 있어요 */}
-          <div className="relative w-full select-none" style={{ height: deckH }}>
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label={playing ? "카드 멈추기" : "카드 다시 재생하기"}
+            onClick={onDeckTap}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onDeckTap(); } }}
+            className="relative w-full select-none cursor-pointer"
+            style={{ height: deckH }}
+          >
             {STEPS.map((s, i) => {
               const d = (i - cur + N) % N;
               const isLeaving = leaving === i;
@@ -159,43 +165,23 @@ export function RoutineGuide({ savedCount }: { savedCount: number; onGo?: (tab: 
             })}
           </div>
 
-          {/* 재생 조절: 자동 재생은 한 바퀴만 돌고 멈춰요 */}
-          <div className="mt-3 flex gap-2">
-            <button
-              type="button"
-              onClick={onPlayPause}
-              className="flex-1 min-h-[44px] rounded-xl bg-white border border-brand-200 text-sm font-semibold text-brand-800 flex items-center justify-center gap-1.5 active:bg-brand-50"
-            >
-              {finished ? <><RotateCcw size={16} /> 다시 보기</> : playing ? <><Pause size={16} /> 멈춤</> : <><Play size={16} /> 재생</>}
-            </button>
-            <button
-              type="button"
-              onClick={onNext}
-              className="flex-1 min-h-[44px] rounded-xl bg-brand-600 text-sm font-semibold text-white flex items-center justify-center gap-1.5 active:bg-brand-700"
-            >
-              다음 <SkipForward size={16} />
-            </button>
-          </div>
+          <p className="mt-2 text-xs text-gray-500 text-center" aria-live="polite">
+            {finished ? "카드를 누르면 처음부터 다시 보여줘요" : playing ? "카드를 누르면 멈춰요" : "카드를 누르면 다시 움직여요"}
+          </p>
 
-          {/* 학습 → 반복 진행 바 */}
-          <div className="mt-3 flex items-stretch gap-1.5">
-            <div className="rounded-lg px-2 py-1.5" style={{ flex: LEARN, background: LEARN_SOFT }}>
-              <p className="text-xs font-bold mb-1" style={{ color: LEARN_COLOR }}>학습 · 새 문장 익히기</p>
-              <div className="flex gap-1">
-                {STEPS.slice(0, LEARN).map((_, i) => (
-                  <span key={i} className="flex-1 h-2 rounded" style={{ background: i === cur ? LEARN_COLOR : "#b9c8dc" }} />
-                ))}
-              </div>
-            </div>
-            <div className="flex items-center text-gray-500" aria-hidden="true"><ArrowRight size={16} /></div>
-            <div className="rounded-lg px-2 py-1.5" style={{ flex: N - LEARN, background: REPEAT_SOFT }}>
-              <p className="text-xs font-bold mb-1" style={{ color: REPEAT_COLOR }}>반복 · 나만의 훅 만들기</p>
-              <div className="flex gap-1">
-                {STEPS.slice(LEARN).map((_, j) => (
-                  <span key={j} className="flex-1 h-2 rounded" style={{ background: j + LEARN === cur ? REPEAT_COLOR : "#e3cfa3" }} />
-                ))}
-              </div>
-            </div>
+          {/* 학습 4칸 + 반복 3칸을 한 줄로 */}
+          <div className="mt-3 flex gap-1" aria-hidden="true">
+            {STEPS.map((_, i) => (
+              <span
+                key={i}
+                className="flex-1 h-2 rounded"
+                style={{ background: i === cur ? colorOf(i) : i < LEARN ? "#b9c8dc" : "#e3cfa3", marginRight: i === LEARN - 1 ? 6 : 0 }}
+              />
+            ))}
+          </div>
+          <div className="mt-1 flex text-xs font-bold" aria-hidden="true">
+            <span style={{ flex: LEARN, color: LEARN_COLOR }}>학습</span>
+            <span style={{ flex: N - LEARN, color: REPEAT_COLOR }}>반복 · 나만의 훅 만들기</span>
           </div>
 
           <p className="mt-2 text-xs text-brand-800 text-center leading-relaxed">
