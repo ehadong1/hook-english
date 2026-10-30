@@ -213,22 +213,24 @@ export function SentenceDissection({ sentence, history, onSaveWord, defaultOpen 
             )}
           </div>
 
-          <div className="bg-gray-50 rounded-xl p-3.5">
-            <p className="text-xs font-bold text-gray-500 mb-2">② 핵심 어휘 · 주로 쓰이는 분야</p>
-            <div className="space-y-2">
-              {sentence.vocab.map((v: Sentence) => (
-                <button key={v.word} onClick={() => onSaveWord(v, sentence)} className="w-full flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-gray-100 active:bg-brand-50">
-                  <div className="text-left">
-                    <p className="text-sm font-semibold text-gray-900">{v.word}</p>
-                    <p className="text-xs text-gray-500">{v.meaning}</p>
-                  </div>
-                  <span className="text-xs text-brand-600 bg-brand-50 px-2 py-1 rounded-full font-medium shrink-0 ml-2">{fieldLabel(v.freq)}</span>
-                </button>
-              ))}
+          {sentence.vocab?.length > 0 && (
+            <div className="bg-gray-50 rounded-xl p-3.5">
+              <p className="text-xs font-bold text-gray-500 mb-2">② 핵심 어휘 · 주로 쓰이는 분야</p>
+              <div className="space-y-2">
+                {sentence.vocab.map((v: Sentence) => (
+                  <button key={v.word} onClick={() => onSaveWord(v, sentence)} className="w-full flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-gray-100 active:bg-brand-50">
+                    <div className="text-left">
+                      <p className="text-sm font-semibold text-gray-900">{v.word}</p>
+                      <p className="text-xs text-gray-500">{v.meaning}</p>
+                    </div>
+                    <span className="text-xs text-brand-600 bg-brand-50 px-2 py-1 rounded-full font-medium shrink-0 ml-2">{fieldLabel(v.freq)}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 mt-2">③ 단어를 누르면 나만의 영어노트에 저장돼요</p>
+              <p className="text-xs text-gray-500 mt-1">분야 표기는 AI·편집자 분류이며, 실제 빈도 순위(상위 %)는 검증된 말뭉치 데이터를 붙이기 전까지 표시하지 않아요.</p>
             </div>
-            <p className="text-xs text-gray-500 mt-2">③ 단어를 누르면 나만의 영어노트에 저장돼요</p>
-            <p className="text-xs text-gray-500 mt-1">분야 표기는 AI·편집자 분류이며, 실제 빈도 순위(상위 %)는 검증된 말뭉치 데이터를 붙이기 전까지 표시하지 않아요.</p>
-          </div>
+          )}
 
           {altItems.length > 0 && (
             <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3.5">

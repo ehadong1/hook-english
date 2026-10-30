@@ -4,6 +4,7 @@ import type { TabKey } from "./components/RoutineGuide";
 import { BookOpen, Volume2, Mic, MessageCircle, Clock, Settings, Loader2, Notebook } from "lucide-react";
 import { getDeviceId } from "./lib/deviceId";
 import { isSupabaseConfigured, ensureSessionUserId } from "./lib/supabaseClient";
+import { installCloudTTS } from "./lib/ttsProvider";
 import { fetchRemoteState, saveProfileRemote, insertItemRemote, updateItemRemote, insertHistoryRemote } from "./lib/persistence";
 import { NotebookModal, VoiceSettings } from "./components/Modals";
 import { Badge, REVIEW_INTERVALS_DAYS, Toast, addDays, uid } from "./components/common";
@@ -67,6 +68,8 @@ export default function App() {
   // Supabase 미설정 시엔 기다릴 필요가 없으니 바로 "로딩 끝"으로 시작
   const [remoteLoaded, setRemoteLoaded] = useState(!isSupabaseConfigured);
 
+  // AI 원어민 음성(실패하면 기기 기본 음성으로 자동 대체)
+  useEffect(() => { if (isSupabaseConfigured) installCloudTTS(); }, []);
   useEffect(() => { loadVoices().then((vs) => { setVoices(vs); setVoice(vs[0] || null); }); }, []);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(""), 2200); return () => clearTimeout(t); }, [toast]);
 

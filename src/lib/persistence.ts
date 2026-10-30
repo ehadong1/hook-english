@@ -153,8 +153,40 @@ export type PhraseBankEntry = {
   korean: string;
   note?: string;
   tone?: string;
+  situation?: string;
+  createdAt?: string;
   sourceUrl?: string;
 };
+
+function mapPhraseRow(row: any): PhraseBankEntry {
+  return {
+    id: row.id,
+    grammarKey: row.grammar_key,
+    english: row.english,
+    korean: row.korean_meaning,
+    note: row.note || undefined,
+    tone: row.tone || undefined,
+    situation: row.situation || undefined,
+    createdAt: row.created_at || undefined,
+    sourceUrl: row.source_url || undefined,
+  };
+}
+
+/** 검수 완료(approved)된 표현 중 가장 최근 것들 (추천 문장 섞어 넣기용) */
+export async function fetchLatestPhrases(limit = 30): Promise<PhraseBankEntry[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("hook_phrase_bank")
+    .select("id, grammar_key, english, korean_meaning, note, tone, situation, source_url, created_at")
+    .eq("status", "approved")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error || !data) {
+    if (error) console.warn("[Hook English] 최신 표현 로드 실패:", error.message);
+    return [];
+  }
+  return data.map(mapPhraseRow);
+}
 
 /**
  * 검수 완료(approved)된 표현 뱅크에서, 해당 문법 키와 맞는 최신 표현을 가져옵니다.
@@ -165,7 +197,7 @@ export async function fetchPhraseBank(grammarKeys: string[], limit = 3): Promise
   if (!supabase || grammarKeys.length === 0) return [];
   const { data, error } = await supabase
     .from("hook_phrase_bank")
-    .select("id, grammar_key, english, korean_meaning, note, tone, source_url")
+    .select("id, grammar_key, english, korean_meaning, note, tone, situation, source_url, created_at")
     .eq("status", "approved")
     .in("grammar_key", grammarKeys)
     .order("created_at", { ascending: false })
@@ -174,15 +206,7 @@ export async function fetchPhraseBank(grammarKeys: string[], limit = 3): Promise
     if (error) console.warn("[Hook English] 표현 뱅크 로드 실패:", error.message);
     return [];
   }
-  return data.map((row: any) => ({
-    id: row.id,
-    grammarKey: row.grammar_key,
-    english: row.english,
-    korean: row.korean_meaning,
-    note: row.note || undefined,
-    tone: row.tone || undefined,
-    sourceUrl: row.source_url || undefined,
-  }));
+  return data.map(mapPhraseRow);
 }
 
 /**
@@ -200,7 +224,7 @@ export async function fetchNewsSentences(bankTopics: string[]): Promise<NewsSent
     .eq("status", "approved")
     .in("topic", bankTopics)
     .order("published_date", { ascending: false })
-    .limit(12);
+    .limit(40); // 넉넉히 가져온 뒤 앱에서 수준에 맞게 골라요
 
   if (error || !data) {
     if (error) console.warn("[Hook English] 뉴스 문장 로드 실패:", error.message);

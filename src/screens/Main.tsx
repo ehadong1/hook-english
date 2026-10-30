@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
 import { Mic, Check, X, ChevronDown, Star, Sparkles, Languages, Loader2, Newspaper, PenLine, Notebook, ChevronUp } from "lucide-react";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
-import { fetchNewsSentences } from "../lib/persistence";
+import { fetchLatestPhrases, fetchNewsSentences, type PhraseBankEntry } from "../lib/persistence";
 import { SpeakButton } from "../components/common";
 import { TOPIC_TO_BANK } from "../data/survey";
-import { getNewsSentences, getRecommendedSentences } from "../lib/personalization";
+import { getNewsSentences, getRecommendedSentences, mixFreshPhrases, rankNewsForProfile } from "../lib/personalization";
 import { createRecognizer, isSTTSupported } from "../lib/speech";
 import type { HistoryItem, Profile, Sentence, StoreItem } from "../types";
 import { containsKorean, describeLlmFailure, translateKoreanToEnglish, writingFeedbackProvider } from "../lib/translate";
@@ -266,7 +266,7 @@ export function HookWordmark({ size = "md", showSubtitle = true }) {
   const isHero = size === "hero";
   const cfg = {
     sm: { text: "text-[18px]", sub: "text-[9px] tracking-[0.3em]", titleGap: "mt-1.5" },
-    hero: { text: "text-[52px]", sub: "text-[20px] tracking-[0.28em]", titleGap: "mt-1" },
+    hero: { text: "text-[68px]", sub: "text-[20px] tracking-[0.28em]", titleGap: "mt-1" },
   }[size] || { text: "text-3xl", sub: "text-sm tracking-[0.28em]", titleGap: "mt-2" };
 
   return (
@@ -295,7 +295,7 @@ export function SentenceList({ sentences, activeId, onSelect, badge, renderDetai
       {sentences.map((s) => (
         <div key={s.id}>
           <button onClick={() => onSelect(s)} aria-expanded={activeId === s.id} className={`w-full text-left p-3 rounded-xl border-2 ${activeId === s.id ? "border-brand-600 bg-brand-50" : "border-gray-100 bg-white"}`}>
-            {badge && <span className="text-xs text-brand-500 font-bold">{badge}</span>}
+            {(s.badge || badge) && <span className="text-xs text-brand-500 font-bold">{s.badge || badge}</span>}
             <p className="text-sm font-semibold text-gray-900">{s.text}</p>
             <p className="text-xs text-gray-500 mt-0.5">{s.translation}</p>
           </button>
@@ -322,7 +322,20 @@ type MainTabProps = {
 export function MainTab({ profile, activeSentence, setActiveSentence, history, onSaveWord, onSaveSentence, savedIds, onStartCustom, savedSentences, onGoTab }: MainTabProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuMode, setMenuMode] = useState<string | null>(null);
-  const recommended = useMemo(() => getRecommendedSentences(profile), [profile]);
+  const baseRecommended = useMemo(() => getRecommendedSentences(profile), [profile]);
+
+  // 표현 뱅크(Exa로 계속 수집·검수)의 최신 표현을 추천 문장에 섞어 넣습니다.
+  const [freshPhrases, setFreshPhrases] = useState<PhraseBankEntry[]>([]);
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let cancelled = false;
+    fetchLatestPhrases(30).then((r) => { if (!cancelled) setFreshPhrases(r); }).catch(() => { /* 기본 추천 유지 */ });
+    return () => { cancelled = true; };
+  }, []);
+  const recommended = useMemo(
+    () => mixFreshPhrases(baseRecommended, freshPhrases, profile, savedIds),
+    [baseRecommended, freshPhrases, profile, savedIds],
+  );
 
   // 우선 정적 SENTENCE_BANK의 뉴스 문장으로 즉시 보여주고, Supabase에
   // 검수 완료(approved)된 실제 뉴스 문장이 있으면 백그라운드에서 교체합니다.
@@ -339,7 +352,7 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
     (async () => {
       try {
         const remote = await fetchNewsSentences(bankTopics.length ? bankTopics : ["최신 시사 및 뉴스"]);
-        if (!cancelled && remote.length) setNewsSentences(remote.slice(0, 3));
+        if (!cancelled && remote.length) setNewsSentences(rankNewsForProfile(remote, profile).slice(0, 3));
       } catch {
         /* 폴백(정적 문장) 유지 */
       }

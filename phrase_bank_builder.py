@@ -55,25 +55,93 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 # App.tsx의 GRAMMAR_LIBRARY 키와 반드시 동일해야, 나중에 앱에서 그대로 재사용 가능합니다.
-# 우선 파일럿으로 4개만 테스트합니다. 결과 품질 보고 나머지 키도 추가하면 됩니다.
+# 앱의 모든 문법 유형을 수집합니다. 매주 검색어가 바뀌어 새 표현이 계속 쌓입니다.
 GRAMMAR_TAXONOMY = {
     "politeRequest": {
         "label": "정중한 요청 (Could / Would you)",
-        "query": "polite ways native English speakers ask coworkers for something in business email",
+        "queries": [
+            "polite ways native English speakers ask coworkers for something in business email",
+            "how to politely ask a colleague for a favor at work in English with examples",
+        ],
     },
     "idiomaticExpression": {
         "label": "관용 표현 (Idiom)",
-        "query": "common business idioms native English speakers use in meetings with examples",
+        "queries": [
+            "common business idioms native English speakers use in meetings with examples",
+            "modern workplace slang and idioms used in American offices",
+        ],
     },
     "concessiveContrast": {
         "label": "대조·양보 (but / although)",
-        "query": "how to politely push back or disagree in a business meeting in English examples",
+        "queries": [
+            "how to politely push back or disagree in a business meeting in English examples",
+            "diplomatic ways to express a different opinion at work in English",
+        ],
     },
     "modalSuggestion": {
         "label": "제안·권고 (should / might want to)",
-        "query": "soft ways to suggest something to your team in English business examples",
+        "queries": [
+            "soft ways to suggest something to your team in English business examples",
+            "how to give advice to a colleague politely in English at work",
+        ],
+    },
+    "nearFuture": {
+        "label": "가까운 미래 (be going to)",
+        "queries": [
+            "how to talk about upcoming plans and next steps at work in English examples",
+            "project update phrases about what we are going to do next in English",
+        ],
+    },
+    "reportedSpeech": {
+        "label": "간접 인용 (said that ~)",
+        "queries": [
+            "how to report what someone said in a business meeting in English examples",
+            "summarizing a conversation with a client in English email examples",
+        ],
+    },
+    "phrasalVerb": {
+        "label": "구동사 (Phrasal Verb)",
+        "queries": [
+            "most common phrasal verbs used in business English meetings with example sentences",
+            "workplace phrasal verbs native speakers use every day examples",
+        ],
+    },
+    "conditionalPossibility": {
+        "label": "가능성 표현 (could / may / might)",
+        "queries": [
+            "how to express possibility and uncertainty in business English examples",
+            "hedging language could might may in professional emails examples",
+        ],
+    },
+    "presentProgressive": {
+        "label": "현재진행 (be + -ing)",
+        "queries": [
+            "how to describe what you are currently working on in English status update examples",
+            "present continuous in business English meetings and standups examples",
+        ],
+    },
+    "quantifier": {
+        "label": "수량 표현 (a lot of / plenty of)",
+        "queries": [
+            "ways to talk about amounts and quantities in business English examples",
+            "natural ways to say many or much in professional English examples",
+        ],
+    },
+    "letMeStructure": {
+        "label": "완곡한 의지 표명 (Let me ~)",
+        "queries": [
+            "let me phrases native speakers use at work to offer help or take action",
+            "polite ways to offer to do something for a colleague in English examples",
+        ],
     },
 }
+
+# 매주 다른 검색어를 쓰도록 돌려서, 같은 글만 계속 모으지 않고 요즘 표현을 계속 넓혀 갑니다.
+def pick_query(info: dict) -> str:
+    qs = info["queries"]
+    week = int(time.time() // (7 * 86400))
+    return qs[week % len(qs)]
+
 
 # 1차 기계 필터: grammar_key가 실제로 그 문법 패턴을 담고 있는지 정규식으로 확인합니다.
 # GPT가 카테고리를 잘못 배정하는 "명백한 오분류"를 GPT 채점 전에 값싸게 걸러냅니다.
@@ -87,6 +155,7 @@ KEYWORD_FILTERS = {
     "quantifier": r"\b(a lot of|plenty of|tons of)\b",
     "letMeStructure": r"\blet me\b",
     "concessiveContrast": r"\b(but|although|though)\b",
+    "presentProgressive": r"\b(am|is|are|'m|'re)\s+\w+ing\b",
 }
 
 # 2차 독립 검수용. 1차 추출/채점과 "다른" 모델을 써서, 같은 모델이 자기 결과를
@@ -142,6 +211,8 @@ def exa_search(query: str, num_results: int = 3) -> list[dict]:
             "query": query,
             "numResults": num_results,
             "contents": {"text": {"maxCharacters": 1200}},
+            # 요즘 표현을 모으기 위해 최근 약 2년 안의 글을 우선합니다.
+            "startPublishedDate": time.strftime("%Y-%m-%dT00:00:00.000Z", time.gmtime(time.time() - 730 * 86400)),
         },
         timeout=30,
     )
@@ -172,6 +243,18 @@ def extract_with_gpt(label: str, snippets: list[dict]) -> list[dict]:
     except Exception as e:
         print(f"  ⚠️ GPT 응답 파싱 실패: {e}")
         return []
+
+
+def find_source_url(english: str, results: list[dict]):
+    """예문이 실제로 들어 있는 글의 주소를 찾습니다. 못 찾으면 None(엉뚱한 출처를 붙이지 않음)."""
+    needle = re.sub(r"\s+", " ", english).strip().lower()[:45]
+    if not needle:
+        return None
+    for r in results:
+        text = re.sub(r"\s+", " ", r.get("text", "") or "").lower()
+        if needle in text:
+            return r.get("url")
+    return None
 
 
 def keyword_filter_ok(grammar_key: str, english: str) -> bool:
@@ -208,9 +291,10 @@ def main():
         label = info["label"]
         print(f"\n=== {grammar_key} ({label}) ===")
 
-        print(f"  🔎 Exa 검색: {info['query']}")
+        query = pick_query(info)
+        print(f"  🔎 Exa 검색: {query}")
         try:
-            results = exa_search(info["query"])
+            results = exa_search(query)
         except Exception as e:
             print(f"  ❌ Exa 검색 실패: {e}")
             continue
@@ -220,9 +304,19 @@ def main():
         items = extract_with_gpt(label, results)
         print(f"  → 후보 {len(items)}개")
 
+        # 이미 저장된 같은 예문은 다시 넣지 않습니다.
+        try:
+            existing = {r["english"].strip().lower() for r in supabase.table("hook_phrase_bank").select("english").eq("grammar_key", grammar_key).execute().data}
+        except Exception:
+            existing = set()
+
         for item in items:
             english = item.get("english", "")
             score1 = item.get("score", 0)
+            if english.strip().lower() in existing:
+                print(f"  ⏭️ 이미 있음: {english!r}")
+                continue
+            existing.add(english.strip().lower())
 
             if not keyword_filter_ok(grammar_key, english):
                 status = "rejected"
@@ -251,7 +345,7 @@ def main():
                 "tone": item.get("tone", "neutral"),
                 "situation": item.get("situation", ""),
                 "note": item.get("note", ""),
-                "source_url": results[0].get("url") if results else None,
+                "source_url": find_source_url(english, results),
                 "verified_score": combined_score,
                 "verified_reason": reason,
                 "status": status,

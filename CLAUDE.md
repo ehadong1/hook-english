@@ -19,9 +19,13 @@
 - 표현 뱅크는 `approved`만 노출, "원어민들은 이렇게도 표현해요"에 "최신" 배지로 합침.
 - 발음 평가는 유료 기능으로 준비 중(가짜 점수 금지).
 
+## 최근 완료
+- AI 음성: `tts` Edge Function + `supabase_tts_migration.sql`(전용 한도 hook_consume_tts_quota, 공개 버킷 tts에 mp3 캐시). 앱은 `src/lib/ttsProvider.ts`, 실패 시 기기 음성으로 대체.
+- 뉴스 문장 수준·상황·말투 정렬(`rankNewsForProfile`), 추천 문장에 표현 뱅크 최신 표현 섞기(`mixFreshPhrases`).
+- `phrase_bank_builder.py`: 11개 문법 유형 전부 수집, 주마다 검색어 교체, 최근 2년 글 우선, 중복 방지, 예문이 실제 들어 있는 글의 주소만 출처로 저장.
+
 ## 다음 할 일(우선순위 후보)
-1. AI 음성(TTS) — 번역·첨삭과 별도 호출 한도 필요(DB 수정 + 새 Edge Function).
-2. 표현 뱅크 수집 문법 유형 확대(현재 approved 4개 유형뿐), 추천 문장도 표현 뱅크에서 가져오기.
-3. 뉴스 문장에 수준(level) 필터 추가.
-4. 도메인 연결(훅잉글리시), 개인정보처리방침·약관, 결제, 호스팅 이전 검토.
+1. 표현 뱅크 `pending_review` 검토 습관화, 오래된 항목의 source_url 정리(예전 수집분은 출처가 틀릴 수 있음).
+2. AI 음성 비용 모니터링(OpenAI 사용량), 필요 시 한도 조정(`_shared/guard.ts`).
+3. 도메인 연결(훅잉글리시), 개인정보처리방침·약관, 결제, 호스팅 이전 검토.
 5. 정기 점검: Scheduled 메뉴에서 만든 작업(사이트 정상 여부).
