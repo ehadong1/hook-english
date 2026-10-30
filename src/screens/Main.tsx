@@ -421,7 +421,7 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
       >
         <span>
           <span className="block text-base font-extrabold">{menuOpen ? "학습 메뉴 접기" : "학습 메뉴 펼치기"}</span>
-          <span className="block text-xs text-gray-500 mt-0.5">추천 3문장 · 뉴스 3문장 · 일기 쓰기 · 문장 만들기</span>
+          <span className="block text-xs text-gray-500 mt-0.5">학습하기 2 · 연습하기 2</span>
         </span>
         <span className="shrink-0 w-9 h-9 rounded-full bg-brand-600 text-white flex items-center justify-center">
           {menuOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
@@ -429,11 +429,19 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
       </button>
       {menuOpen && (
         <>
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            <button onClick={() => openMenu("recommended")} className="p-3 rounded-2xl bg-brand-50 border border-brand-100 text-left"><Sparkles size={16} className="text-brand-600 mb-1" /><p className="text-xs font-bold text-brand-800">오늘의 추천 3문장</p></button>
-            <button onClick={() => openMenu("news")} className="p-3 rounded-2xl bg-rose-50 border border-rose-100 text-left"><Newspaper size={16} className="text-rose-600 mb-1" /><p className="text-xs font-bold text-rose-800">최신 뉴스 3문장</p></button>
-            <button onClick={() => openMenu("diary")} className="p-3 rounded-2xl bg-amber-50 border border-amber-100 text-left"><PenLine size={16} className="text-amber-600 mb-1" /><p className="text-xs font-bold text-amber-800">오늘의 일기 쓰기</p></button>
-            <button onClick={() => openMenu("compose")} className="p-3 rounded-2xl bg-emerald-50 border border-emerald-100 text-left"><Notebook size={16} className="text-emerald-600 mb-1" /><p className="text-xs font-bold text-emerald-800">문장 만들어 보기</p></button>
+          <div className="mt-3">
+            <p className="text-sm font-extrabold text-brand-700">학습하기 <span className="font-medium text-xs text-gray-500">· 좋은 문장을 골라 이해해요</span></p>
+            <div className="grid grid-cols-2 gap-2 mt-1.5">
+              <button onClick={() => openMenu("recommended")} className="p-3 rounded-2xl bg-brand-50 border border-brand-100 text-left"><Sparkles size={16} className="text-brand-600 mb-1" /><p className="text-xs font-bold text-brand-800">오늘의 추천 3문장</p><p className="text-[11px] text-gray-500 mt-0.5">내 수준·분야에 맞춰요</p></button>
+              <button onClick={() => openMenu("news")} className="p-3 rounded-2xl bg-rose-50 border border-rose-100 text-left"><Newspaper size={16} className="text-rose-600 mb-1" /><p className="text-xs font-bold text-rose-800">최신 뉴스 3문장</p><p className="text-[11px] text-gray-500 mt-0.5">요즘 실제 기사 표현</p></button>
+            </div>
+          </div>
+          <div className="mt-3">
+            <p className="text-sm font-extrabold" style={{ color: "#8a6420" }}>연습하기 <span className="font-medium text-xs text-gray-500">· 내 말로 직접 써봐요</span></p>
+            <div className="grid grid-cols-2 gap-2 mt-1.5">
+              <button onClick={() => openMenu("diary")} className="p-3 rounded-2xl bg-amber-50 border border-amber-100 text-left"><PenLine size={16} className="text-amber-600 mb-1" /><p className="text-xs font-bold text-amber-800">오늘의 일기 쓰기</p><p className="text-[11px] text-gray-500 mt-0.5">하루를 영어로 쓰고 첨삭</p></button>
+              <button onClick={() => openMenu("compose")} className="p-3 rounded-2xl bg-emerald-50 border border-emerald-100 text-left"><Notebook size={16} className="text-emerald-600 mb-1" /><p className="text-xs font-bold text-emerald-800">문장 만들어 보기</p><p className="text-[11px] text-gray-500 mt-0.5">배운 표현으로 새 문장</p></button>
+            </div>
           </div>
           {menuMode === "recommended" && <div className="mt-4"><p className="text-xs font-bold text-gray-500 mb-2">내 설문(수준·업무 분야·말투)에 맞춘 추천 {recommended.length}문장</p><SentenceList sentences={recommended} activeId={activeSentence?.id} onSelect={setActiveSentence} renderDetail={activeCard} /></div>}
           {menuMode === "news" && <div className="mt-4"><p className="text-xs font-bold text-gray-500 mb-2">내가 고른 업무 분야의 최신 뉴스 기반 {newsSentences.length}문장</p><SentenceList sentences={newsSentences} activeId={activeSentence?.id} onSelect={setActiveSentence} badge="NEWS" renderDetail={activeCard} /></div>}
