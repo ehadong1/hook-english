@@ -29,7 +29,7 @@ const SYSTEM_PROMPT = `당신은 한국어가 모국어인 직장인에게 "실�
 - alternatives는 정확히 2개, 원어민들이 실제로 쓰는 대안 표현을 제시하세요. 각각 en(영어 문장), ko(한글 뜻), note(짧은 팁, 한글)를 포함하세요.
 - grammarKeys: 최종 english 문장에 실제로 쓰인 문법 패턴을, 아래 목록에 있는 값 중에서만 최대 2개 고르세요. 목록에 맞는 게 전혀 없으면 빈 배열로 두세요.
   선택 가능한 값: ${GRAMMAR_KEYS.join(", ")}
-- vocab: english 문장에 실제로 등장하는 핵심 단어/표현 최대 3개. word(원문 그대로의 소문자 단어/구), meaning(한글 뜻), note(이 단어가 어떤 상황에서 쓰이는지 짧은 한글 설명, 통계 수치는 지어내지 말 것).
+- vocab: english 문장에 실제로 등장하는 핵심 단어/표현 최대 3개. word(원문 그대로의 소문자 단어/구), pos(이 문장에서의 품사, 다음 중 하나만: 명사, 동사, 형용사, 부사, 전치사, 접속사, 구동사, 관용구, 연어), meaning(이 문장에서의 한글 뜻), note(이 단어가 어떤 상황에서 쓰이는지 짧은 한글 설명, 통계 수치는 지어내지 말 것).
 - 반드시 아래 JSON 스키마로만 응답하고, 다른 설명이나 텍스트를 덧붙이지 마세요.
 
 {
@@ -41,7 +41,7 @@ const SYSTEM_PROMPT = `당신은 한국어가 모국어인 직장인에게 "실�
   ],
   "grammarKeys": string[],
   "vocab": [
-    { "word": string, "meaning": string, "note": string }
+    { "word": string, "pos": string, "meaning": string, "note": string }
   ]
 }`;
 

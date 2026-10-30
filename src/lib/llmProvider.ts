@@ -24,7 +24,7 @@ export type TranslateResult = {
   nuance: string;
   alternatives: { en: string; ko: string; note: string }[];
   grammarKeys?: string[];
-  vocab?: { word: string; meaning: string; note: string }[];
+  vocab?: { word: string; pos?: string; meaning: string; note: string }[];
 };
 
 /**

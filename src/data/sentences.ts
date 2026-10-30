@@ -11,9 +11,9 @@ export const SENTENCE_BANK = [
     translation: "그 파일 나중에 보내줄 수 있어요?",
     grammarKeys: ["politeRequest"],
     vocab: [
-      { word: "send", meaning: "보내다", freq: "상위 1% · 일상 필수 동사" },
-      { word: "file", meaning: "파일, 문서", freq: "오피스 대화 상위 5%" },
-      { word: "later", meaning: "나중에", freq: "구어 상위 3%" },
+      { word: "send", pos: "동사", meaning: "보내다", freq: "상위 1% · 일상 필수 동사" },
+      { word: "file", pos: "명사", meaning: "파일, 문서", freq: "오피스 대화 상위 5%" },
+      { word: "later", pos: "부사", meaning: "나중에", freq: "구어 상위 3%" },
     ],
     sound: {
       title: "n + y 연결", pattern: "Can you → [캐뉴]",
@@ -35,8 +35,8 @@ export const SENTENCE_BANK = [
     translation: "저 커피 한 잔 사올게요.",
     grammarKeys: ["nearFuture"],
     vocab: [
-      { word: "grab", meaning: "간단히 사다 / 집다", freq: "구어 상위 4%" },
-      { word: "coffee", meaning: "커피", freq: "일상 상위 1%" },
+      { word: "grab", pos: "동사", meaning: "간단히 사다 / 집다", freq: "구어 상위 4%" },
+      { word: "coffee", pos: "명사", meaning: "커피", freq: "일상 상위 1%" },
     ],
     sound: {
       title: "going to 축약", pattern: "going to → gonna [고너]",
@@ -58,8 +58,8 @@ export const SENTENCE_BANK = [
     translation: "뉴스에서 내일 비가 온다고 했어요.",
     grammarKeys: ["reportedSpeech"],
     vocab: [
-      { word: "news", meaning: "뉴스, 소식", freq: "상위 1% 필수 어휘" },
-      { word: "rain", meaning: "비가 오다", freq: "일상 상위 3%" },
+      { word: "news", pos: "명사", meaning: "뉴스, 소식", freq: "상위 1% 필수 어휘" },
+      { word: "rain", pos: "동사", meaning: "비가 오다", freq: "일상 상위 3%" },
     ],
     sound: {
       title: "자음 + 모음 연결", pattern: "said it → [세딧]",
@@ -81,8 +81,8 @@ export const SENTENCE_BANK = [
     translation: "우리 앱이 큰 업데이트를 했어요.",
     grammarKeys: ["quantifier"],
     vocab: [
-      { word: "update", meaning: "업데이트, 갱신", freq: "IT 대화 상위 1%" },
-      { word: "app", meaning: "앱, 애플리케이션", freq: "IT 상위 1%" },
+      { word: "update", pos: "명사", meaning: "업데이트, 갱신", freq: "IT 대화 상위 1%" },
+      { word: "app", pos: "명사", meaning: "앱, 애플리케이션", freq: "IT 상위 1%" },
     ],
     sound: {
       title: "모음 사이 T 약화", pattern: "got a → [가러]",
@@ -104,8 +104,8 @@ export const SENTENCE_BANK = [
     translation: "일정 확인하고 다시 알려드릴게요.",
     grammarKeys: ["letMeStructure", "phrasalVerb"],
     vocab: [
-      { word: "schedule", meaning: "일정", freq: "오피스 상위 2%" },
-      { word: "get back to", meaning: "~에게 회신하다", freq: "비즈니스 상위 1%" },
+      { word: "schedule", pos: "명사", meaning: "일정", freq: "오피스 상위 2%" },
+      { word: "get back to", pos: "구동사", meaning: "~에게 회신하다", freq: "비즈니스 상위 1%" },
     ],
     sound: {
       title: "자음 충돌 시 T 탈락", pattern: "get back → [게백]",
@@ -127,8 +127,8 @@ export const SENTENCE_BANK = [
     translation: "이 과정을 좀 설명해 주실 수 있나요?",
     grammarKeys: ["politeRequest", "phrasalVerb"],
     vocab: [
-      { word: "walk through", meaning: "차근차근 설명하다", freq: "회의 표현 상위 2%" },
-      { word: "process", meaning: "과정, 절차", freq: "비즈니스 상위 3%" },
+      { word: "walk through", pos: "구동사", meaning: "차근차근 설명하다", freq: "회의 표현 상위 2%" },
+      { word: "process", pos: "명사", meaning: "과정, 절차", freq: "비즈니스 상위 3%" },
     ],
     sound: {
       title: "d + y 결합", pattern: "Could you → [쿠쥬]",
@@ -150,8 +150,8 @@ export const SENTENCE_BANK = [
     translation: "많은 사람들이 이 이슈에 대해 이야기하고 있어요.",
     grammarKeys: ["quantifier", "presentProgressive"],
     vocab: [
-      { word: "issue", meaning: "이슈, 사안", freq: "뉴스 상위 1%" },
-      { word: "talk about", meaning: "~에 대해 이야기하다", freq: "일상 상위 2%" },
+      { word: "issue", pos: "명사", meaning: "이슈, 사안", freq: "뉴스 상위 1%" },
+      { word: "talk about", pos: "구동사", meaning: "~에 대해 이야기하다", freq: "일상 상위 2%" },
     ],
     sound: {
       title: "T 약화 + 연결", pattern: "a lot of → [얼라러브]",
@@ -173,8 +173,8 @@ export const SENTENCE_BANK = [
     translation: "이걸 관리할 더 좋은 방법을 찾아야 해요.",
     grammarKeys: ["phrasalVerb", "modalSuggestion"],
     vocab: [
-      { word: "figure out", meaning: "알아내다, 방법을 찾다", freq: "비즈니스 상위 2%" },
-      { word: "track", meaning: "추적·관리하다", freq: "IT 상위 3%" },
+      { word: "figure out", pos: "구동사", meaning: "알아내다, 방법을 찾다", freq: "비즈니스 상위 2%" },
+      { word: "track", pos: "동사", meaning: "추적·관리하다", freq: "IT 상위 3%" },
     ],
     sound: {
       title: "r 뒤 모음 연결", pattern: "figure out → [피겨라웃]",
@@ -196,9 +196,9 @@ export const SENTENCE_BANK = [
     translation: "다음 스프린트가 시작되기 전에 로드맵을 맞춰야 합니다.",
     grammarKeys: ["modalSuggestion", "phrasalVerb"],
     vocab: [
-      { word: "align on", meaning: "~에 대해 합의하다", freq: "비즈니스 회의 상위 1%" },
-      { word: "roadmap", meaning: "로드맵, 중장기 계획", freq: "IT/기획 상위 2%" },
-      { word: "kick off", meaning: "시작하다", freq: "비즈니스 상위 3%" },
+      { word: "align on", pos: "구동사", meaning: "~에 대해 합의하다", freq: "비즈니스 회의 상위 1%" },
+      { word: "roadmap", pos: "명사", meaning: "로드맵, 중장기 계획", freq: "IT/기획 상위 2%" },
+      { word: "kick off", pos: "구동사", meaning: "시작하다", freq: "비즈니스 상위 3%" },
     ],
     sound: {
       title: "계단식 억양", pattern: "aLIGN ↘ ROADmap ↘ SPRINT",
@@ -220,8 +220,8 @@ export const SENTENCE_BANK = [
     translation: "발표는 잘 됐지만, 가격 정책에 대한 반발이 많았어요.",
     grammarKeys: ["concessiveContrast", "quantifier"],
     vocab: [
-      { word: "pushback", meaning: "반발, 이견", freq: "비즈니스 상위 3%" },
-      { word: "pricing", meaning: "가격 정책", freq: "비즈니스 상위 2%" },
+      { word: "pushback", pos: "명사", meaning: "반발, 이견", freq: "비즈니스 상위 3%" },
+      { word: "pricing", pos: "명사", meaning: "가격 정책", freq: "비즈니스 상위 2%" },
     ],
     sound: {
       title: "but 앞의 끊김", pattern: "got a lot of → [가럴라러브]",
@@ -243,8 +243,8 @@ export const SENTENCE_BANK = [
     translation: "전문가들은 그 정책이 장기적으로 역효과를 낼 수 있다고 경고합니다.",
     grammarKeys: ["reportedSpeech", "conditionalPossibility"],
     vocab: [
-      { word: "backfire", meaning: "역효과를 내다", freq: "시사 어휘 상위 4%" },
-      { word: "in the long run", meaning: "장기적으로", freq: "시사·에세이 상위 3%" },
+      { word: "backfire", pos: "동사", meaning: "역효과를 내다", freq: "시사 어휘 상위 4%" },
+      { word: "in the long run", pos: "관용구", meaning: "장기적으로", freq: "시사·에세이 상위 3%" },
     ],
     sound: {
       title: "복합어 강세 위치", pattern: "could BACKfire → [커드 백파이어]",
@@ -266,8 +266,8 @@ export const SENTENCE_BANK = [
     translation: "누구의 영역을 침범하고 싶진 않지만, 이 건은 다시 검토해야 할 것 같아요.",
     grammarKeys: ["idiomaticExpression", "concessiveContrast", "modalSuggestion"],
     vocab: [
-      { word: "step on someone's toes", meaning: "남의 영역을 침범하다", freq: "오피스 관용구 상위 5%" },
-      { word: "revisit", meaning: "재검토하다", freq: "비즈니스 상위 2%" },
+      { word: "step on someone's toes", pos: "관용구", meaning: "남의 영역을 침범하다", freq: "오피스 관용구 상위 5%" },
+      { word: "revisit", pos: "동사", meaning: "재검토하다", freq: "비즈니스 상위 2%" },
     ],
     sound: {
       title: "want to 축약", pattern: "don't want to → [도워너]",

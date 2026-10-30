@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
-import { Mic, Check, X, ChevronDown, Star, Sparkles, Languages, Loader2, Newspaper, PenLine, Notebook, ChevronUp } from "lucide-react";
+import { Mic, Check, X, Star, Sparkles, Languages, Loader2, Newspaper, PenLine, Notebook } from "lucide-react";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import { fetchLatestPhrases, fetchNewsSentences, type PhraseBankEntry } from "../lib/persistence";
 import { SpeakButton } from "../components/common";
@@ -317,10 +317,11 @@ type MainTabProps = {
   onStartCustom: (english: string, originKo: string | null, meta?: Sentence) => void;
   savedSentences: StoreItem[];
   onGoTab: (tab: TabKey) => void;
+  onOpenNotes: () => void;
 };
 
-export function MainTab({ profile, activeSentence, setActiveSentence, history, onSaveWord, onSaveSentence, savedIds, onStartCustom, savedSentences, onGoTab }: MainTabProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
+export function MainTab({ profile, activeSentence, setActiveSentence, history, onSaveWord, onSaveSentence, savedIds, onStartCustom, savedSentences, onGoTab, onOpenNotes }: MainTabProps) {
+  const menuOpen = true; // 학습 메뉴는 접지 않고 항상 보여줍니다.
   const [menuMode, setMenuMode] = useState<string | null>(null);
   const baseRecommended = useMemo(() => getRecommendedSentences(profile), [profile]);
 
@@ -362,7 +363,7 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
 
   const weaknesses = profile.weaknesses || [profile.weakness].filter(Boolean);
   const autoOpen = weaknesses.includes("문법") || weaknesses.includes("문장 구성");
-  const openMenu = (mode: string) => { setMenuMode(mode); setMenuOpen(true); };
+  const openMenu = (mode: string) => { setMenuMode(mode); };
 
   // 문장을 고르면 그 문장 바로 아래에 해설이 열리고, 화면이 자동으로 그 위치로 내려갑니다.
   const detailRef = useRef<HTMLDivElement>(null);
@@ -407,26 +408,12 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
 
   return (
     <div className="px-4 pb-6">
-      <div className="pt-10 pb-7 text-center rounded-2xl bg-gradient-to-b from-[#f4f7fb] via-white to-white border border-[#e4ebf3] mb-1">
+      <div className="pt-5 pb-4 text-center rounded-2xl bg-gradient-to-b from-[#f4f7fb] via-white to-white border border-[#e4ebf3] mb-1">
         <HookWordmark size="hero" />
         <p className="mt-3 text-base font-bold text-brand-700">하루 3문장 비즈니스 영어</p>
       </div>
       <ComposerBox profile={profile} onStart={onStartCustom} minimal />
-      <RoutineGuide savedCount={savedSentences.length} onGo={onGoTab} />
-      <button
-        type="button"
-        onClick={() => setMenuOpen((o) => !o)}
-        aria-expanded={menuOpen}
-        className="w-full mt-5 px-4 py-4 rounded-2xl border-2 border-brand-600 bg-white text-brand-700 shadow-sm active:bg-brand-50 flex items-center justify-between text-left"
-      >
-        <span>
-          <span className="block text-base font-extrabold">{menuOpen ? "학습 메뉴 접기" : "학습 메뉴 펼치기"}</span>
-          <span className="block text-xs text-gray-500 mt-0.5">학습하기 2 · 연습하기 2</span>
-        </span>
-        <span className="shrink-0 w-9 h-9 rounded-full bg-brand-600 text-white flex items-center justify-center">
-          {menuOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-        </span>
-      </button>
+      <RoutineGuide savedCount={savedSentences.length} onGo={onGoTab} onOpenNotes={onOpenNotes} />
       {menuOpen && (
         <>
           <div className="mt-3">

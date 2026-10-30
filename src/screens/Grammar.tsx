@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { BookOpen, ChevronDown, Info } from "lucide-react";
+import { BookOpen, ChevronDown, Info, Star } from "lucide-react";
 import { BottomSheet, SpeakButton } from "../components/common";
 import { GRAMMAR_LIBRARY, detectGrammarKeysFromText, explainGrammarInSentence, findGrammarMatch, highlightGrammarMatch } from "../data/grammar";
 import { findPastGrammarCases as rawPastCases } from "../lib/personalization";
@@ -12,11 +12,11 @@ function findPastGrammarCases(key: string, history: HistoryItem[], currentId: st
   return rawPastCases(key, history, currentId).filter((h) => !!findGrammarMatch(key, h.text));
 }
 
-// 빈도 표기: 실제 말뭉치로 검증하지 않은 "상위 N%"는 보여주지 않고 쓰이는 분야만 표시합니다.
-function fieldLabel(freq?: string): string {
-  const f = (freq || "").replace(/상위\s*\d+\s*%/g, "").replace(/[·]/g, " ").replace(/\s+/g, " ").trim();
-  if (!f || f === "GPT 분석" || f === "빈도 데이터 없음") return "비즈니스 표현";
-  return /(어휘|동사|표현|관용구)$/.test(f) ? f : `${f} 표현`;
+// 단어 아래 짧은 쓰임 설명. 근거 없는 "상위 N%"나 자리표시 문구는 보여주지 않습니다.
+function usageNote(note?: string): string {
+  const f = (note || "").trim();
+  if (!f || /상위\s*\d+\s*%|GPT 분석|빈도 데이터 없음/.test(f)) return "";
+  return f;
 }
 
 /* ============================================================================
@@ -215,20 +215,26 @@ export function SentenceDissection({ sentence, history, onSaveWord, defaultOpen 
 
           {sentence.vocab?.length > 0 && (
             <div className="bg-gray-50 rounded-xl p-3.5">
-              <p className="text-xs font-bold text-gray-500 mb-2">② 핵심 어휘 · 주로 쓰이는 분야</p>
+              <p className="text-xs font-bold text-gray-500 mb-2">② 단어</p>
               <div className="space-y-2">
-                {sentence.vocab.map((v: Sentence) => (
-                  <button key={v.word} onClick={() => onSaveWord(v, sentence)} className="w-full flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-gray-100 active:bg-brand-50">
-                    <div className="text-left">
-                      <p className="text-sm font-semibold text-gray-900">{v.word}</p>
-                      <p className="text-xs text-gray-500">{v.meaning}</p>
-                    </div>
-                    <span className="text-xs text-brand-600 bg-brand-50 px-2 py-1 rounded-full font-medium shrink-0 ml-2">{fieldLabel(v.freq)}</span>
-                  </button>
-                ))}
+                {sentence.vocab.map((v: Sentence) => {
+                  const tip = usageNote(v.freq);
+                  return (
+                    <button key={v.word} onClick={() => onSaveWord(v, sentence)} className="w-full flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-gray-100 active:bg-brand-50">
+                      <div className="text-left min-w-0">
+                        <p className="text-sm font-semibold text-gray-900">
+                          {v.word}
+                          {v.pos && <span className="ml-2 align-middle text-[11px] text-brand-700 bg-brand-50 px-1.5 py-0.5 rounded font-medium">{v.pos}</span>}
+                        </p>
+                        <p className="text-sm text-gray-700">{v.meaning}</p>
+                        {tip && <p className="text-xs text-gray-500 mt-0.5">{tip}</p>}
+                      </div>
+                      <Star size={15} className="text-gray-300 shrink-0 ml-2" aria-label="영어노트에 저장" />
+                    </button>
+                  );
+                })}
               </div>
               <p className="text-xs text-gray-500 mt-2">③ 단어를 누르면 나만의 영어노트에 저장돼요</p>
-              <p className="text-xs text-gray-500 mt-1">분야 표기는 AI·편집자 분류이며, 실제 빈도 순위(상위 %)는 검증된 말뭉치 데이터를 붙이기 전까지 표시하지 않아요.</p>
             </div>
           )}
 

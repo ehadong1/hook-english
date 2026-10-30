@@ -147,7 +147,7 @@ export default function App() {
     const validGrammarKeys = (meta?.grammarKeys || []).filter((k: string) => GRAMMAR_LIBRARY[k]);
     const llmVocab = (meta?.vocab || [])
       .filter((v: Sentence) => v?.word && v?.meaning)
-      .map((v: Sentence) => ({ word: String(v.word).toLowerCase(), meaning: v.meaning, freq: v.note || "GPT 분석" }));
+      .map((v: Sentence) => ({ word: String(v.word).toLowerCase(), meaning: v.meaning, pos: v.pos, freq: v.note || "GPT 분석" }));
 
     let grammarKeys = validGrammarKeys;
     let vocab = llmVocab;
@@ -242,7 +242,7 @@ export default function App() {
           <MainTab
             profile={profile} activeSentence={activeSentence} setActiveSentence={setActiveSentence}
             history={history} onSaveWord={handleSaveWord} onSaveSentence={handleSaveSentence}
-            savedIds={savedIds} onStartCustom={handleStartCustom} savedSentences={savedSentences} onGoTab={setTab}
+            savedIds={savedIds} onStartCustom={handleStartCustom} savedSentences={savedSentences} onGoTab={setTab} onOpenNotes={() => setModal("notebook")}
           />
         )}
         {tab === "training" && (activeSentence ? <TrainingTab sentence={activeSentence} voice={voice} /> : needSentence)}

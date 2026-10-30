@@ -41,7 +41,7 @@ export type NewsSentence = {
   text: string;
   translation: string;
   grammarKeys: string[];
-  vocab: { word: string; meaning: string; note?: string; freq?: string }[];
+  vocab: { word: string; pos?: string; meaning: string; note?: string; freq?: string }[];
   nativeAlternatives: { en: string; ko: string; note: string }[];
   sourceUrl?: string;
   isNews: true;

@@ -100,7 +100,7 @@ EXTRACT_SYSTEM_PROMPT = f"""당신은 비즈니스 영어 학습 콘텐츠 에�
 - tone은 반드시 {TONES} 중 하나.
 - grammarKeys는 최대 2개, 반드시 아래 목록 중에서만 고르세요 (없으면 빈 배열):
   {GRAMMAR_KEYS}
-- vocab은 문장에 실제로 등장하는 핵심 단어 최대 3개: word, meaning(한글), note(짧은 설명).
+- vocab은 문장에 실제로 등장하는 핵심 단어 최대 3개: word, pos(이 문장에서의 품사: 명사/동사/형용사/부사/전치사/접속사/구동사/관용구/연어 중 하나), meaning(한글), note(짧은 설명).
 - score는 1~5점 (학습 콘텐츠로서의 품질/자연스러움). 후하게 주지 마세요.
 - 적합한 문장이 없으면 빈 리스트를 반환하세요.
 
@@ -112,7 +112,7 @@ EXTRACT_SYSTEM_PROMPT = f"""당신은 비즈니스 영어 학습 콘텐츠 에�
   "tone": "...",
   "situations": ["한글 상황 태그 최대 2개"],
   "grammarKeys": ["..."],
-  "vocab": [{{"word": "...", "meaning": "...", "note": "..."}}],
+  "vocab": [{{"word": "...", "pos": "...", "meaning": "...", "note": "..."}}],
   "score": 1~5,
   "reason": "점수 이유 한 줄 (한글)"
 }}

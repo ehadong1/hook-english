@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, Repeat, Target } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, Repeat, Target } from "lucide-react";
 
 export type TabKey = "main" | "training" | "scoring" | "review" | "roleplay";
 
@@ -29,11 +29,9 @@ const AUTO_MS = 4300;
 const colorOf = (i: number) => (i < LEARN ? LEARN_COLOR : REPEAT_COLOR);
 const tagOf = (i: number) => (i < LEARN ? `학습 ${i + 1}/${LEARN}` : `반복 ${i - LEARN + 1}/${N - LEARN}`);
 
-export function RoutineGuide({ savedCount }: { savedCount: number; onGo?: (tab: TabKey) => void }) {
-  // 처음 방문하면 펼쳐서 보여주고, 한 번 접으면 다음부터는 접어 둡니다.
-  const [open, setOpen] = useState(() => {
-    try { return localStorage.getItem("hook_guide_seen") !== "1" && savedCount === 0; } catch { return false; }
-  });
+export function RoutineGuide({ savedCount, onOpenNotes }: { savedCount: number; onOpenNotes: () => void; onGo?: (tab: TabKey) => void }) {
+  // 첫 화면에 학습 메뉴 4개가 모두 보이도록 기본은 접어 둡니다. (원하면 "7단계 활용법 보기"로 펼쳐요)
+  const [open, setOpen] = useState(false);
   const toggle = () => {
     setOpen((o) => {
       if (o) { try { localStorage.setItem("hook_guide_seen", "1"); } catch { /* 무시 */ } }
@@ -94,21 +92,26 @@ export function RoutineGuide({ savedCount }: { savedCount: number; onGo?: (tab: 
 
   return (
     <section className="mt-3 rounded-2xl border border-brand-100 bg-brand-50/60 p-3.5" aria-label="Hook 학습 루틴">
-      <button type="button" onClick={toggle} aria-expanded={open} className="w-full flex items-center gap-2 text-left">
-        <Target size={18} className="text-brand-600 shrink-0" />
-        <span className="flex-1">
-          <span className="block text-sm font-bold text-brand-800">하루 3문장, 1년이면 1,000문장</span>
-          <span className="block text-xs text-brand-700 mt-0.5">
-            지금까지 저장한 문장 <b>{savedCount}</b> / {GOAL.toLocaleString("ko-KR")}
+      {/* 누르면 나만의 영어노트가 열려요 */}
+      <button type="button" onClick={onOpenNotes} aria-label="나만의 영어노트 열기" className="w-full text-left active:opacity-80">
+        <span className="flex items-center gap-2">
+          <Target size={18} className="text-brand-600 shrink-0" />
+          <span className="flex-1">
+            <span className="block text-sm font-bold text-brand-800">하루 3문장, 1년이면 1,000문장</span>
+            <span className="block text-xs text-brand-700 mt-0.5">
+              지금까지 저장한 문장 <b>{savedCount}</b> / {GOAL.toLocaleString("ko-KR")}
+            </span>
           </span>
+          <span className="shrink-0 text-xs font-semibold text-brand-700 flex items-center">나만의 영어노트<ChevronRight size={16} /></span>
         </span>
-        <span className="shrink-0 text-xs font-semibold text-brand-700">{open ? "접기" : "활용법 보기"}</span>
-        {open ? <ChevronUp size={18} className="text-brand-600" /> : <ChevronDown size={18} className="text-brand-600" />}
+        <span className="block mt-2.5 h-2 rounded-full bg-white overflow-hidden" role="progressbar" aria-valuemin={0} aria-valuemax={GOAL} aria-valuenow={savedCount}>
+          <span className="block h-full rounded-full bg-accent-500" style={{ width: `${Math.max(pct, savedCount > 0 ? 2 : 0)}%` }} />
+        </span>
       </button>
-
-      <div className="mt-2.5 h-2 rounded-full bg-white overflow-hidden" role="progressbar" aria-valuemin={0} aria-valuemax={GOAL} aria-valuenow={savedCount}>
-        <div className="h-full rounded-full bg-accent-500" style={{ width: `${Math.max(pct, savedCount > 0 ? 2 : 0)}%` }} />
-      </div>
+      <button type="button" onClick={toggle} aria-expanded={open} className="mt-2 w-full flex items-center justify-center gap-1 text-xs font-semibold text-brand-700">
+        {open ? "활용법 접기" : "7단계 활용법 보기"}
+        {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+      </button>
 
       {open && (
         <div className="mt-3">
