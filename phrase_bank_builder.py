@@ -171,11 +171,18 @@ VERIFIER_SYSTEM_PROMPT = """당신은 비즈니스 영어 콘텐츠를 검수하
 - 문법 규칙 자체를 "설명"하는 메타 문장인 경우
   (예: "You should, you need to, and you have to are all acceptable." 처럼
    규칙을 나열/설명만 하고 실제 상황에서 쓰이는 문장이 아닌 경우)
-- 실제 이메일/회의/대화에서 쓰일 법하지 않은 문장
+- 회사·업무 상황(회의, 이메일, 협상, 보고, 동료·고객과의 대화)에서 쓰이지 않는 일상 문장
+  (예: 쇼핑, 미용실, 주말 약속, 날씨 같은 사적인 대화)
+- 기사나 책의 본문처럼 길고 설명적인 문장이라, 앞뒤 글 없이는 표현으로 쓰기 어려운 경우
+  (한 문장이 22단어를 넘거나, 글쓴이의 서술·논평인 경우)
+- 문장 조각, 말줄임표나 슬래시(/)가 섞인 미완성 표현
 - "{label}" 패턴이 문장에 실제로 나타나지 않는 경우
 
 JSON으로만 응답하세요:
-{{"score": 1~5 정수, "is_meta_sentence": true 또는 false, "reason": "한 줄 이유(한글)"}}"""
+{{"score": 1~5 정수, "is_meta_sentence": true 또는 false,
+  "is_workplace": 업무 상황에서 쓰는 표현이면 true,
+  "is_standalone": 앞뒤 글 없이 그대로 외워 쓸 수 있는 짧은 완성 표현이면 true,
+  "reason": "한 줄 이유(한글)"}}"""
 
 RUBRIC_SYSTEM_PROMPT = """당신은 비즈니스 영어 콘텐츠를 검수하는 깐깐한 원어민 에디터입니다.
 아래에 실제 웹에서 가져온 텍스트 조각들이 주어집니다. 이 조각들 "안에 실제로 등장하는"
@@ -187,6 +194,10 @@ RUBRIC_SYSTEM_PROMPT = """당신은 비즈니스 영어 콘텐츠를 검수하�
 - 각 예문에 대해 1~5점 루브릭 점수를 매기세요: 5 = 원어민이 실제 비즈니스 상황에서
   자연스럽게 쓸 법함, 3 = 문법은 맞지만 어색하거나 일반적, 1 = 부자연스럽거나 이 패턴과
   무관함. 점수를 후하게 주지 말고, 애매하면 낮게 주세요.
+- 회사·업무 상황(회의, 이메일, 협상, 보고, 동료·고객과의 대화)에서 쓰는 표현만 뽑으세요.
+  쇼핑, 미용실, 날씨 같은 일상·사적인 대화는 뽑지 마세요.
+- 앞뒤 글 없이 그대로 외워 쓸 수 있는 짧은 완성 표현(보통 3~20단어)만 뽑으세요.
+  기사 본문 같은 긴 설명문, 문장 조각, 말줄임표나 슬래시(/)가 섞인 문장은 뽑지 마세요.
 - 적합한 문장이 하나도 없으면 빈 리스트를 반환하세요. 억지로 채우지 마세요.
 
 각 항목은 다음 JSON 스키마를 따르세요:
@@ -283,7 +294,8 @@ def verify_independently(label: str, english: str) -> dict:
 
 
 def main():
-    APPROVE_THRESHOLD = 4  # 이 점수 이상만 자동 승인(approved), 나머지는 사람이 검토(pending_review)
+    APPROVE_THRESHOLD = 5  # 이 점수 이상만 자동 승인(approved), 나머지는 사람이 검토(pending_review)
+    MAX_WORDS = 22  # 이보다 긴 문장은 기사 본문일 가능성이 높아 바로 거부
     total_inserted = 0
     total_approved = 0
 
@@ -318,7 +330,13 @@ def main():
                 continue
             existing.add(english.strip().lower())
 
-            if not keyword_filter_ok(grammar_key, english):
+            n_words = len(english.split())
+            if n_words > MAX_WORDS or n_words < 2 or "/" in english or "…" in english or "..." in english:
+                status = "rejected"
+                combined_score = 0
+                reason = f"기계 필터 거부: 길이({n_words}단어) 또는 미완성 표기(/, …)"
+                icon = "🚫"
+            elif not keyword_filter_ok(grammar_key, english):
                 status = "rejected"
                 combined_score = 0
                 reason = f"1차 기계 필터 거부: '{label}' 패턴 키워드가 문장에 없음"
@@ -330,6 +348,9 @@ def main():
                 if v.get("is_meta_sentence"):
                     status = "rejected"
                     reason = f"2차 검수 거부(메타 문장): {v.get('reason', '')}"
+                elif v.get("is_workplace") is False or v.get("is_standalone") is False:
+                    status = "rejected"
+                    reason = f"2차 검수 거부(업무 무관 또는 독립 표현 아님): {v.get('reason', '')}"
                 elif score1 >= APPROVE_THRESHOLD and score2 >= APPROVE_THRESHOLD:
                     status = "approved"
                     reason = f"1차 {score1}점 / 2차(다른 모델) {score2}점 — 둘 다 통과: {v.get('reason', '')}"

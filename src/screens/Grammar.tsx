@@ -253,26 +253,12 @@ export function SentenceDissection({ sentence, history, onSaveWord, defaultOpen 
                     </div>
                     <p className="text-xs text-gray-600 mt-1">{a.ko}</p>
                     {a.note && <p className="text-xs text-emerald-700 mt-1.5">TIP · {a.note}</p>}
-                    {a.url && (
-                      <a href={a.url} target="_blank" rel="noopener noreferrer" className="inline-block mt-1 text-xs text-gray-500 underline">출처 보기</a>
-                    )}
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {sentence.isNews && sentence.sourceUrl && (
-            <a
-              href={sentence.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-between bg-white border border-gray-100 rounded-xl px-3.5 py-3 text-xs text-gray-500"
-            >
-              <span>원문 기사 보러 가기</span>
-              <span className="text-brand-500 font-semibold">열기 ↗</span>
-            </a>
-          )}
         </div>
       )}
 
