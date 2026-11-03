@@ -1,9 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import type { HistoryItem, Profile, Sentence, Store, StoreItem } from "./types";
 import type { TabKey } from "./components/RoutineGuide";
-import { BookOpen, Volume2, Mic, MessageCircle, Clock, Settings, Loader2, Notebook } from "lucide-react";
+import { BookOpen, Volume2, Mic, MessageCircle, Clock, Settings, Loader2, Notebook, User } from "lucide-react";
 import { getDeviceId } from "./lib/deviceId";
-import { isSupabaseConfigured, ensureSessionUserId } from "./lib/supabaseClient";
+import { isSupabaseConfigured, ensureSessionUserId, getAuthInfo, consumeLinkConflict, supabase, type AuthInfo } from "./lib/supabaseClient";
+import { flushPendingConsent } from "./lib/consent";
+import { AccountSheet } from "./components/AccountSheet";
 import { installCloudTTS } from "./lib/ttsProvider";
 import { fetchRemoteState, saveProfileRemote, insertItemRemote, updateItemRemote, insertHistoryRemote } from "./lib/persistence";
 import { NotebookModal, VoiceSettings } from "./components/Modals";
@@ -58,7 +60,9 @@ export default function App() {
   }, []);
   const [activeSentence, setActiveSentence] = useState<Sentence | null>(null);
   const [toast, setToast] = useState("");
-  const [modal, setModal] = useState<"notebook" | "voice" | null>(null);
+  const [modal, setModal] = useState<"notebook" | "voice" | "account" | null>(null);
+  const [auth, setAuth] = useState<AuthInfo | null>(null);
+  const [linkConflict, setLinkConflict] = useState(false);
   const isDev = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("dev"); // ?dev=1 일 때만 개발용 도구 표시
   const [virtualNow, setVirtualNow] = useState(new Date());
   const [store, setStore] = useState<Store>({ items: [] });
@@ -79,6 +83,24 @@ export default function App() {
     ensureSessionUserId().then((id) => { if (!cancelled) setDeviceId(id || getDeviceId()); });
     return () => { cancelled = true; };
   }, []);
+
+  // 로그인 상태(익명/구글) 추적. 구글 로그인에서 돌아오면 동의 기록을 서버에 저장하고 안내합니다.
+  useEffect(() => {
+    if (!isSupabaseConfigured || !deviceId) return;
+    let cancelled = false;
+    if (consumeLinkConflict()) { setLinkConflict(true); setModal("account"); }
+    const refresh = async () => {
+      const info = await getAuthInfo();
+      if (cancelled) return;
+      setAuth(info);
+      if (info && !info.isAnonymous) {
+        flushPendingConsent(info.userId);
+      }
+    };
+    refresh();
+    const sub = supabase?.auth.onAuthStateChange(() => { refresh(); });
+    return () => { cancelled = true; sub?.data.subscription.unsubscribe(); };
+  }, [deviceId]);
 
   // 사용자 식별자가 정해지면, 이 사용자에게 저장된 온보딩 결과/단어장/이력을 Supabase에서 불러옵니다.
   // 키가 설정되어 있지 않으면(로컬 전용 모드) 아무 것도 하지 않고 넘어갑니다.
@@ -230,6 +252,12 @@ export default function App() {
       <div className="flex items-center justify-between px-4 py-3 sticky top-0 bg-white/95 backdrop-blur z-20 border-b border-gray-100">
         <HookWordmark size="sm" showSubtitle={false} />
         <div className="flex items-center gap-1">
+          {isSupabaseConfigured && (
+            <button type="button" aria-label={auth && !auth.isAnonymous ? "내 계정" : "로그인"} onClick={() => setModal("account")} className="relative p-2 text-gray-500">
+              <User size={20} className={auth && !auth.isAnonymous ? "text-brand-600" : ""} />
+              {auth && !auth.isAnonymous && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500" />}
+            </button>
+          )}
           <button type="button" aria-label="음성 설정" onClick={() => setModal("voice")} className="p-2 text-gray-500"><Settings size={20} /></button>
           <button type="button" aria-label="나만의 영어노트 열기" onClick={() => setModal("notebook")} className="relative p-2 text-gray-500">
             <Notebook size={19} />{(savedSentences.length + savedWords.length) > 0 && <Badge n={savedSentences.length + savedWords.length} />}
@@ -277,6 +305,7 @@ export default function App() {
           onSelectSentence={handleReviewFromNotebook}
         />
       )}
+      {modal === "account" && <AccountSheet auth={auth} linkConflict={linkConflict} onClose={() => { setModal(null); setLinkConflict(false); }} />}
       {modal === "voice" && <VoiceSettings voices={voices} selected={voice} onSelect={setVoice} onClose={() => setModal(null)} />}
 
       <Toast message={toast} />

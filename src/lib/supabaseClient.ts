@@ -38,6 +38,57 @@ export async function ensureSessionUserId(): Promise<string | null> {
   }
 }
 
+/* ============================================================================
+   구글 로그인 (익명 계정 → 구글 계정으로 "연결"하면 지금까지의 기록이 그대로 이어집니다)
+   ============================================================================ */
+
+export type AuthInfo = { userId: string; isAnonymous: boolean; email: string | null };
+
+/** 로그인 후 돌아올 주소 (사이트 주소 + 배포 경로). */
+function redirectUrl(): string {
+  return `${window.location.origin}${import.meta.env.BASE_URL}`;
+}
+
+export async function getAuthInfo(): Promise<AuthInfo | null> {
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getSession();
+  const u = data.session?.user;
+  if (!u) return null;
+  return { userId: u.id, isAnonymous: Boolean(u.is_anonymous), email: u.email ?? null };
+}
+
+/** 처음 가입: 지금 쓰던 익명 계정에 구글 계정을 붙입니다. (기록 유지) */
+export async function linkGoogleAccount(): Promise<string | null> {
+  if (!supabase) return "서버에 연결되어 있지 않아요.";
+  const { error } = await supabase.auth.linkIdentity({ provider: "google", options: { redirectTo: redirectUrl() } });
+  return error ? error.message : null; // 성공하면 구글 화면으로 이동합니다
+}
+
+/** 이미 가입한 구글 계정으로 로그인합니다. (이 기기의 익명 기록 대신 계정의 기록을 불러옴) */
+export async function signInWithGoogle(): Promise<string | null> {
+  if (!supabase) return "서버에 연결되어 있지 않아요.";
+  const { error } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: redirectUrl() } });
+  return error ? error.message : null;
+}
+
+export async function signOutUser(): Promise<void> {
+  if (!supabase) return;
+  await supabase.auth.signOut();
+}
+
+// 로그인 라이브러리가 주소의 오류 정보를 지우기 전에, 처음 열린 주소를 기억해 둡니다.
+const initialHref = typeof window !== "undefined" ? window.location.href : "";
+
+/** 구글 계정이 이미 다른 계정에 연결돼 있어 "연결"에 실패하고 돌아온 경우인지 확인합니다. */
+export function consumeLinkConflict(): boolean {
+  if (typeof window === "undefined") return false;
+  const conflict = /identity_already_exists|already(\s|\+|%20)+linked/i.test(initialHref);
+  if (conflict) {
+    window.history.replaceState(null, "", `${window.location.origin}${window.location.pathname}${window.location.hash.startsWith("#/") ? window.location.hash : ""}`);
+  }
+  return conflict;
+}
+
 if (!isSupabaseConfigured && typeof window !== "undefined") {
   // eslint-disable-next-line no-console
   console.warn(
