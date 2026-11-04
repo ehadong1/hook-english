@@ -3,6 +3,7 @@ import { Mic, Check, X, Star, Sparkles, Languages, Loader2, Newspaper, PenLine, 
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import { fetchLatestPhrases, fetchNewsSentences, type PhraseBankEntry } from "../lib/persistence";
 import { SpeakButton } from "../components/common";
+import { HookTip } from "../components/HookTip";
 import { TOPIC_TO_BANK } from "../data/survey";
 import { getNewsSentences, getRecommendedSentences, mixFreshPhrases, rankNewsForProfile } from "../lib/personalization";
 import { createRecognizer, isSTTSupported } from "../lib/speech";
@@ -411,7 +412,8 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
     <div className="px-4 pb-6">
       <div className="pt-5 pb-4 text-center rounded-2xl bg-gradient-to-b from-[#f4f7fb] via-white to-white border border-[#e4ebf3] mb-1">
         <HookWordmark size="hero" />
-        <p className="mt-3 text-base font-bold text-brand-700">하루 3문장 비즈니스 영어</p>
+        <p className="fly-in mt-3 text-base font-bold text-brand-700">나에게 맞춘 하루 3문장 비즈니스 영어</p>
+        <p className="fly-in-delay mt-1 px-4 text-xs text-gray-600">상대를 사로잡는 나만의 한마디, <b className="text-brand-800">훅(Hook)</b>을 만들어요</p>
       </div>
       <ComposerBox profile={profile} onStart={onStartCustom} minimal onSubmit={() => { setMenuMode(null); setActiveSentence(null); }} />
       <RoutineGuide savedCount={savedSentences.length} onGo={onGoTab} onOpenNotes={onOpenNotes} />
@@ -431,6 +433,7 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
               <button onClick={() => openMenu("compose")} className="p-3 rounded-2xl bg-emerald-50 border border-emerald-100 text-left"><Notebook size={16} className="text-emerald-600 mb-1" /><p className="text-xs font-bold text-emerald-800">문장 만들어 보기</p><p className="text-[11px] text-gray-500 mt-0.5">배운 표현으로 새 문장</p></button>
             </div>
           </div>
+          {!menuMode && !activeSentence && <HookTip />}
           {menuMode === "recommended" && <div className="mt-4"><p className="text-xs font-bold text-gray-500 mb-2">내 설문(수준·업무 분야·말투)에 맞춘 추천 {recommended.length}문장</p><SentenceList sentences={recommended} activeId={activeSentence?.id} onSelect={setActiveSentence} renderDetail={activeCard} /></div>}
           {menuMode === "news" && <div className="mt-4"><p className="text-xs font-bold text-gray-500 mb-2">내가 고른 업무 분야의 최신 뉴스 기반 {newsSentences.length}문장</p><SentenceList sentences={newsSentences} activeId={activeSentence?.id} onSelect={setActiveSentence} badge="NEWS" renderDetail={activeCard} /></div>}
           {(menuMode === "diary" || menuMode === "compose") && <WritingPractice profile={profile} mode={menuMode} savedSentences={savedSentences} onClose={() => setMenuMode(null)} />}

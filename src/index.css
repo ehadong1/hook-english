@@ -165,7 +165,22 @@ body {
   animation: finger-swipe 2.2s ease-in-out infinite;
 }
 
+/* 멀리서(작고 흐릿하게) 앞으로 날아와 자리 잡는 등장 효과 */
+@keyframes fly-in {
+  0% { transform: perspective(500px) translateZ(-260px) scale(0.5); opacity: 0; filter: blur(5px); }
+  70% { opacity: 1; filter: blur(0); }
+  100% { transform: perspective(500px) translateZ(0) scale(1); opacity: 1; filter: blur(0); }
+}
+.fly-in {
+  animation: fly-in 0.9s cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+.fly-in-delay {
+  animation: fly-in 0.9s cubic-bezier(0.2, 0.8, 0.25, 1) 0.35s both;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .fly-in,
+  .fly-in-delay,
   .finger-hint,
   .hook-wordmark-title--hero {
     animation: none;

@@ -26,12 +26,13 @@ import { TrainingTab } from "./screens/Training";
    SECTION 16. App (최상위 상태 관리)
    ============================================================================ */
 
-const TABS: { key: TabKey; label: string; icon: typeof BookOpen }[] = [
-  { key: "main", label: "메인", icon: BookOpen },
-  { key: "training", label: "리스닝", icon: Volume2 },
-  { key: "scoring", label: "발음", icon: Mic },
-  { key: "review", label: "복습", icon: Clock },
-  { key: "roleplay", label: "실전대화", icon: MessageCircle },
+// step: 7단계 활용법과 연결되는 번호
+const TABS: { key: TabKey; label: string; step: string; icon: typeof BookOpen }[] = [
+  { key: "main", label: "문장·해설", step: "1·2단계", icon: BookOpen },
+  { key: "training", label: "듣기", step: "3단계", icon: Volume2 },
+  { key: "scoring", label: "말하기", step: "3단계", icon: Mic },
+  { key: "roleplay", label: "실전대화", step: "5·6단계", icon: MessageCircle },
+  { key: "review", label: "복습", step: "7단계", icon: Clock },
 ];
 
 const TAB_KEYS: TabKey[] = ["main", "training", "scoring", "review", "roleplay"];
@@ -245,7 +246,28 @@ export default function App() {
     );
   }
 
-  const needSentence = <div className="px-4 pt-12 text-center text-sm text-gray-400">메인 탭에서 문장을 먼저 선택해주세요.</div>;
+  const recentSaved = [...savedSentences].reverse().slice(0, 3);
+  const needSentence = (what: string) => (
+    <div className="px-5 pt-10 pb-6">
+      <p className="text-base font-bold text-gray-900 text-center">{what}</p>
+      <p className="text-sm text-gray-600 text-center mt-1.5 leading-relaxed">연습할 문장이 아직 없어요.<br />저장해 둔 문장을 고르거나, 새 문장을 만들어 보세요.</p>
+      {recentSaved.length > 0 && (
+        <div className="mt-5 space-y-2">
+          <p className="text-xs font-bold text-gray-500">최근 저장한 문장으로 바로 연습</p>
+          {recentSaved.map((it) => (
+            <button key={it.id} type="button" onClick={() => handleReviewFromNotebook(it)} className="w-full text-left rounded-xl border border-brand-100 bg-brand-50/60 px-3.5 py-3 active:opacity-80">
+              <span className="block text-sm font-semibold text-gray-900 break-words">{it.text}</span>
+              {it.meaning && <span className="block text-xs text-gray-500 mt-0.5 break-words">{it.meaning}</span>}
+            </button>
+          ))}
+          <button type="button" onClick={() => setModal("notebook")} className="w-full text-xs font-semibold text-brand-700 underline pt-1">나만의 영어노트에서 고르기</button>
+        </div>
+      )}
+      <button type="button" onClick={() => setTab("main")} className="w-full mt-5 py-3.5 rounded-xl bg-gray-900 text-white text-sm font-semibold">
+        내가 영어로 하고 싶은 말 입력하러 가기
+      </button>
+    </div>
+  );
 
   return (
     <div className="max-w-[400px] mx-auto min-h-screen bg-white shadow-xl flex flex-col relative">
@@ -270,8 +292,8 @@ export default function App() {
             savedIds={savedIds} onStartCustom={handleStartCustom} savedSentences={savedSentences} onGoTab={setTab} onOpenNotes={() => setModal("notebook")}
           />
         )}
-        {tab === "training" && (activeSentence ? <TrainingTab sentence={activeSentence} voice={voice} /> : needSentence)}
-        {tab === "scoring" && (activeSentence ? <ScoringTab sentence={activeSentence as { text: string }} voice={voice} /> : needSentence)}
+        {tab === "training" && (activeSentence ? <TrainingTab sentence={activeSentence} voice={voice} /> : needSentence("듣기·따라 읽기 연습"))}
+        {tab === "scoring" && (activeSentence ? <ScoringTab sentence={activeSentence as { text: string }} voice={voice} /> : needSentence("말하기 연습"))}
         {tab === "review" && <ReviewTab store={store} setStore={setStore} virtualNow={virtualNow} advanceDay={() => setVirtualNow((d) => addDays(d, 1))} deviceId={deviceId} devTools={isDev} />}
         {tab === "roleplay" && <RoleplayTab savedSentences={savedSentences} profile={profile} />}
       </div>
@@ -283,7 +305,8 @@ export default function App() {
           return (
             <button type="button" key={t.key} onClick={() => setTab(t.key)} aria-current={active ? "page" : undefined} className="flex flex-col items-center gap-0.5 px-2 py-1 relative min-w-[56px]">
               <Icon size={19} className={active ? "text-brand-600" : "text-gray-400"} />
-              <span className={`text-xs font-medium ${active ? "text-brand-600" : "text-gray-400"}`}>{t.label}</span>
+              <span className={`text-xs font-medium ${active ? "text-brand-600" : "text-gray-500"}`}>{t.label}</span>
+              <span className={`text-[10px] leading-none ${active ? "text-brand-500" : "text-gray-400"}`}>{t.step}</span>
               {t.key === "review" && dueCount > 0 && (
                 <span className="absolute -top-1 right-0 bg-rose-500 text-white text-xs rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center">{dueCount}</span>
               )}
