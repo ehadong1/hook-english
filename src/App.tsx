@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import type { HistoryItem, Profile, Sentence, Store, StoreItem } from "./types";
 import type { TabKey } from "./components/RoutineGuide";
-import { BookOpen, Volume2, Mic, MessageCircle, Clock, Settings, Loader2, Notebook, User } from "lucide-react";
+import { BookOpen, Volume2, Mic, MessageCircle, Clock, Loader2, Notebook, User } from "lucide-react";
 import { getDeviceId } from "./lib/deviceId";
 import { isSupabaseConfigured, ensureSessionUserId, getAuthInfo, consumeLinkConflict, supabase, type AuthInfo } from "./lib/supabaseClient";
 import { flushPendingConsent } from "./lib/consent";
@@ -9,13 +9,13 @@ import { AccountSheet } from "./components/AccountSheet";
 import { installCloudTTS } from "./lib/ttsProvider";
 import { fetchRemoteState, saveProfileRemote, insertItemRemote, updateItemRemote, insertHistoryRemote } from "./lib/persistence";
 import { NotebookModal, VoiceSettings } from "./components/Modals";
-import { Badge, REVIEW_INTERVALS_DAYS, Toast, addDays, uid } from "./components/common";
+import { REVIEW_INTERVALS_DAYS, Toast, addDays, uid } from "./components/common";
 import { GRAMMAR_LIBRARY, detectGrammarKeysFromText } from "./data/grammar";
 import { SENTENCE_BANK } from "./data/sentences";
 import { WEAKNESS_TO_TAB } from "./data/survey";
 import { normalizeProfile } from "./lib/personalization";
 import { loadVoices } from "./lib/speech";
-import { HookWordmark, MainTab } from "./screens/Main";
+import { MainTab } from "./screens/Main";
 import { Onboarding } from "./screens/Onboarding";
 import { ReviewTab } from "./screens/Review";
 import { RoleplayTab } from "./screens/Roleplay";
@@ -250,19 +250,16 @@ export default function App() {
   return (
     <div className="max-w-[400px] mx-auto min-h-screen bg-white shadow-xl flex flex-col relative">
       <div className="flex items-center justify-between px-4 py-3 sticky top-0 bg-white/95 backdrop-blur z-20 border-b border-gray-100">
-        <HookWordmark size="sm" showSubtitle={false} />
-        <div className="flex items-center gap-1">
-          {isSupabaseConfigured && (
-            <button type="button" aria-label={auth && !auth.isAnonymous ? "내 계정" : "로그인"} onClick={() => setModal("account")} className="relative p-2 text-gray-500">
-              <User size={20} className={auth && !auth.isAnonymous ? "text-brand-600" : ""} />
-              {auth && !auth.isAnonymous && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500" />}
-            </button>
-          )}
-          <button type="button" aria-label="음성 설정" onClick={() => setModal("voice")} className="p-2 text-gray-500"><Settings size={20} /></button>
-          <button type="button" aria-label="나만의 영어노트 열기" onClick={() => setModal("notebook")} className="relative p-2 text-gray-500">
-            <Notebook size={19} />{(savedSentences.length + savedWords.length) > 0 && <Badge n={savedSentences.length + savedWords.length} />}
+        {isSupabaseConfigured ? (
+          <button type="button" aria-label={auth && !auth.isAnonymous ? "내 계정" : "로그인"} onClick={() => setModal("account")} className="relative p-2 -ml-2 text-gray-500">
+            <User size={22} className={auth && !auth.isAnonymous ? "text-brand-600" : ""} />
+            {auth && !auth.isAnonymous && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500" />}
           </button>
-        </div>
+        ) : <span />}
+        <button type="button" aria-label="나만의 영어노트 열기" onClick={() => setModal("notebook")} className="relative flex items-center gap-1.5 pl-3 pr-3.5 py-2 rounded-full bg-brand-50 text-brand-700 text-sm font-bold">
+          <Notebook size={20} />나만의 영어노트
+          {(savedSentences.length + savedWords.length) > 0 && <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-brand-600 text-white text-xs flex items-center justify-center">{savedSentences.length + savedWords.length}</span>}
+        </button>
       </div>
 
       <div className="flex-1 overflow-y-auto">
