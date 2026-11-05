@@ -240,7 +240,7 @@ export function SentenceDissection({ sentence, history, onSaveWord, defaultOpen 
 
           {altItems.length > 0 && (
             <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3.5">
-              <p className="text-xs font-bold text-emerald-700 mb-2">④ 원어민들은 이렇게도 표현해요</p>
+              <p className="text-xs font-bold text-emerald-700 mb-2"><span className="mr-1.5 px-1.5 py-0.5 rounded-full bg-accent-50 border border-accent-300 text-[11px]" style={{ color: "#8a6420" }}>Hook</span>④ 원어민들은 이렇게도 표현해요</p>
               <div className="space-y-2">
                 {altItems.map((a) => (
                   <div key={a.key} className="bg-white rounded-lg p-3">
@@ -252,7 +252,7 @@ export function SentenceDissection({ sentence, history, onSaveWord, defaultOpen 
                       <SpeakButton text={a.en} size={16} className="text-emerald-600" />
                     </div>
                     <p className="text-xs text-gray-600 mt-1">{a.ko}</p>
-                    {a.note && <p className="text-xs text-emerald-700 mt-1.5">TIP · {a.note}</p>}
+                    {a.note && <p className="text-xs text-emerald-700 mt-1.5">Hook Tip · {a.note}</p>}
                   </div>
                 ))}
               </div>

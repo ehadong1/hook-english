@@ -3,7 +3,6 @@ import { Mic, Check, X, Star, Sparkles, Languages, Loader2, Newspaper, PenLine, 
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import { fetchLatestPhrases, fetchNewsSentences, type PhraseBankEntry } from "../lib/persistence";
 import { SpeakButton } from "../components/common";
-import { HookTip } from "../components/HookTip";
 import { TOPIC_TO_BANK } from "../data/survey";
 import { getNewsSentences, getRecommendedSentences, mixFreshPhrases, rankNewsForProfile } from "../lib/personalization";
 import { createRecognizer, isSTTSupported } from "../lib/speech";
@@ -239,7 +238,7 @@ export function ComposerBox({ profile, onStart, minimal = false, onSubmit }: { p
 
           {result.alternatives?.length > 0 && (
             <div className="mt-2.5">
-              <p className="text-xs font-bold text-emerald-600 mb-1.5">원어민들은 이렇게도 표현해요</p>
+              <p className="text-xs font-bold text-emerald-600 mb-1.5"><span className="mr-1.5 px-1.5 py-0.5 rounded-full bg-accent-50 border border-accent-300 text-[11px]" style={{ color: "#8a6420" }}>Hook</span>원어민들은 이렇게도 표현해요</p>
               <div className="space-y-1.5">
                 {result.alternatives.map((a: { en: string; ko: string; note: string }, i: number) => (
                   <div key={i} className="bg-emerald-50 rounded-lg p-2.5">
@@ -248,7 +247,7 @@ export function ComposerBox({ profile, onStart, minimal = false, onSubmit }: { p
                       <SpeakButton text={a.en} size={15} className="text-emerald-600" />
                     </div>
                     <p className="text-xs text-gray-500 mt-0.5">{a.ko}</p>
-                    <p className="text-xs text-emerald-600 mt-1">TIP · {a.note}</p>
+                    <p className="text-xs text-emerald-600 mt-1">Hook Tip · {a.note}</p>
                   </div>
                 ))}
               </div>
@@ -433,7 +432,6 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
               <button onClick={() => openMenu("compose")} className="p-3 rounded-2xl bg-emerald-50 border border-emerald-100 text-left"><Notebook size={16} className="text-emerald-600 mb-1" /><p className="text-xs font-bold text-emerald-800">문장 만들어 보기</p><p className="text-[11px] text-gray-500 mt-0.5">배운 표현으로 새 문장</p></button>
             </div>
           </div>
-          {!menuMode && !activeSentence && <HookTip />}
           {menuMode === "recommended" && <div className="mt-4"><p className="text-xs font-bold text-gray-500 mb-2">내 설문(수준·업무 분야·말투)에 맞춘 추천 {recommended.length}문장</p><SentenceList sentences={recommended} activeId={activeSentence?.id} onSelect={setActiveSentence} renderDetail={activeCard} /></div>}
           {menuMode === "news" && <div className="mt-4"><p className="text-xs font-bold text-gray-500 mb-2">내가 고른 업무 분야의 최신 뉴스 기반 {newsSentences.length}문장</p><SentenceList sentences={newsSentences} activeId={activeSentence?.id} onSelect={setActiveSentence} badge="NEWS" renderDetail={activeCard} /></div>}
           {(menuMode === "diary" || menuMode === "compose") && <WritingPractice profile={profile} mode={menuMode} savedSentences={savedSentences} onClose={() => setMenuMode(null)} />}
