@@ -267,11 +267,11 @@ export function HookWordmark({ size = "md", showSubtitle = true }) {
   const isHero = size === "hero";
   const cfg = {
     sm: { text: "text-[18px]", sub: "text-[9px] tracking-[0.3em]", titleGap: "mt-1.5" },
-    hero: { text: "text-[68px]", sub: "text-[20px] tracking-[0.28em]", titleGap: "mt-1" },
+    hero: { text: "text-[56px]", sub: "text-[22px] tracking-[0.2em]", titleGap: "ml-3" },
   }[size] || { text: "text-3xl", sub: "text-sm tracking-[0.28em]", titleGap: "mt-2" };
 
   return (
-    <div className="inline-flex flex-col items-center select-none">
+    <div className={`inline-flex select-none ${isHero ? "flex-row items-baseline justify-center" : "flex-col items-center"}`}>
       <span
         className={`hook-wordmark-title ${cfg.text}${isHero ? " hook-wordmark-title--hero" : ""}`}
       >
@@ -412,8 +412,9 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
       <div className="pt-5 pb-4 text-center rounded-2xl bg-gradient-to-b from-[#f4f7fb] via-white to-white border border-[#e4ebf3] mb-1">
         <HookWordmark size="hero" />
         <p className="fly-in mt-3 text-base font-bold text-brand-700">나에게 맞춘 하루 3문장 비즈니스 영어</p>
-        <p className="fly-in-delay mt-1 px-4 text-xs text-gray-600">상대를 사로잡는 나만의 한마디, <b className="text-brand-800">훅(Hook)</b>을 만들어요</p>
+        <p className="fly-in-delay mt-1 px-4 text-xs text-gray-600">내 입에 착 붙는 한마디, <b className="text-brand-800">훅(Hook)</b>으로 만들어요</p>
       </div>
+      <p className="mt-2 mb-1 px-1 text-xs font-semibold text-brand-700">필요한 말부터, 입에 붙을 때까지</p>
       <ComposerBox profile={profile} onStart={onStartCustom} minimal onSubmit={() => { setMenuMode(null); setActiveSentence(null); }} />
       <RoutineGuide savedCount={savedSentences.length} onGo={onGoTab} onOpenNotes={onOpenNotes} />
       {menuOpen && (
