@@ -1,0 +1,24 @@
+name: Review Push Sender
+
+on:
+  schedule:
+    # 매일 23:00 UTC = 한국시간 다음날 오전 8:00 (GitHub 예약은 몇 분~수십 분 늦을 수 있어요)
+    - cron: "0 23 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call send-review-push function
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          code=$(curl -sS -o result.json -w "%{http_code}" -X POST \
+            "$SUPABASE_URL/functions/v1/send-review-push" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" -d '{}')
+          echo "HTTP $code"
+          cat result.json
+          test "$code" = "200"

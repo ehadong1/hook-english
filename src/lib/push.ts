@@ -8,7 +8,7 @@ import { supabase } from "./supabaseClient";
    ============================================================================ */
 
 // 서버에서 만든 VAPID "공개" 키. 비어 있으면 알림 설정 화면을 숨깁니다.
-export const VAPID_PUBLIC_KEY = "";
+export const VAPID_PUBLIC_KEY = "BBCJHiWUEW4WXdtoq7GQjyay7TOa08dfcMfnhepuZHvyYVJLe4Z_13Cc_DVEVaF7eVlg5Hr_ye63FElV7FM8rLA";
 
 export type PushState =
   | "hidden" // 키가 아직 없음(화면에 안 보임)
