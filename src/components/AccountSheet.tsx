@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { Check, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Bell, Check, Loader2 } from "lucide-react";
+import { disablePush, enablePush, getPushState, type PushState } from "../lib/push";
 import { BottomSheet } from "./common";
 import { linkGoogleAccount, signInWithGoogle, signOutUser, isSupabaseConfigured, type AuthInfo } from "../lib/supabaseClient";
 import { legalUrl, markConsentPending } from "../lib/consent";
@@ -22,6 +23,64 @@ function Check2({ checked, onChange, label, href }: { checked: boolean; onChange
       </span>
       <a href={href} target="_blank" rel="noopener noreferrer" className="text-xs text-gray-500 underline shrink-0 mt-0.5">보기</a>
     </label>
+  );
+}
+
+/** 복습 알림 설정. 로그인하지 않아도 쓸 수 있어요. */
+function PushSection() {
+  const [state, setState] = useState<PushState>("hidden");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  useEffect(() => { getPushState().then(setState); }, []);
+  if (state === "hidden") return null;
+
+  const toggle = async () => {
+    if (busy) return;
+    setBusy(true); setMsg("");
+    if (state === "on") {
+      await disablePush();
+    } else {
+      const err = await enablePush();
+      if (err) setMsg(err);
+    }
+    setState(await getPushState());
+    setBusy(false);
+  };
+
+  const canToggle = state === "on" || state === "off";
+  return (
+    <div className="mt-5 rounded-xl border border-gray-100 px-3.5 py-3">
+      <div className="flex items-center gap-3">
+        <Bell size={18} className="text-brand-600 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-gray-900">복습 알림</p>
+          <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">복습할 문장이 있는 날, 조용히 알림창에만 알려줘요.</p>
+        </div>
+        {canToggle && (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={state === "on"}
+            aria-label="복습 알림"
+            onClick={toggle}
+            disabled={busy}
+            className={`relative shrink-0 w-12 h-7 rounded-full transition-colors disabled:opacity-60 ${state === "on" ? "bg-brand-600" : "bg-gray-300"}`}
+          >
+            <span className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform ${state === "on" ? "translate-x-5" : ""}`} />
+          </button>
+        )}
+      </div>
+      {state === "need-install" && (
+        <p className="text-xs text-amber-800 bg-amber-50 rounded-lg px-3 py-2 mt-2.5 leading-relaxed">아이폰은 Safari에서 공유 버튼 → <b>홈 화면에 추가</b>로 앱처럼 설치한 뒤, 그 아이콘으로 열면 알림을 켤 수 있어요.</p>
+      )}
+      {state === "denied" && (
+        <p className="text-xs text-amber-800 bg-amber-50 rounded-lg px-3 py-2 mt-2.5 leading-relaxed">브라우저에서 알림이 차단되어 있어요. 사이트 설정에서 알림을 허용한 뒤 다시 와주세요.</p>
+      )}
+      {state === "unsupported" && (
+        <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 mt-2.5 leading-relaxed">이 브라우저는 알림을 지원하지 않아요.</p>
+      )}
+      {msg && <p className="text-xs text-rose-600 mt-2 leading-relaxed">{msg}</p>}
+    </div>
   );
 }
 
@@ -72,6 +131,7 @@ export function AccountSheet({ auth, linkConflict, onClose }: Props) {
           </div>
         </div>
         <p className="text-sm text-gray-700 leading-relaxed">나만의 영어노트와 학습 기록이 이 계정에 저장돼요. 다른 기기에서도 같은 구글 계정으로 로그인하면 이어서 쓸 수 있어요.</p>
+        <PushSection />
         <button type="button" onClick={logout} disabled={busy} className="w-full mt-5 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 disabled:opacity-60">
           {busy ? "처리 중..." : "로그아웃"}
         </button>
@@ -123,6 +183,7 @@ export function AccountSheet({ auth, linkConflict, onClose }: Props) {
       {showExisting && (
         <p className="text-xs text-gray-500 mt-2 leading-relaxed text-center">이 기기에서 지금까지 쓴 기록은 계정에 합쳐지지 않고, 계정에 저장된 기록을 불러와요.</p>
       )}
+      <PushSection />
     </BottomSheet>
   );
 }
