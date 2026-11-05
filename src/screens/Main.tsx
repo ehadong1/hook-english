@@ -413,7 +413,7 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
         <HookWordmark size="hero" />
         <p className="fly-in mt-3 text-base font-bold text-brand-700">나에게 맞춘 하루 3문장 비즈니스 영어</p>
       </div>
-      <p className="mt-2 mb-1 px-1 text-xs font-semibold text-brand-700">필요한 말부터, 입에 붙을 때까지</p>
+      <p className="mt-2 mb-1 px-1 text-xs font-semibold text-brand-700">필요한 말부터, 입에 붙을 때까지 <span className="font-medium text-gray-500">· 번역 뒤 복습 일정까지 챙겨요</span></p>
       <ComposerBox profile={profile} onStart={onStartCustom} minimal onSubmit={() => { setMenuMode(null); setActiveSentence(null); }} />
       <RoutineGuide savedCount={savedSentences.length} onGo={onGoTab} onOpenNotes={onOpenNotes} />
       {menuOpen && (
