@@ -412,7 +412,6 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
       <div className="pt-5 pb-4 text-center rounded-2xl bg-gradient-to-b from-[#f4f7fb] via-white to-white border border-[#e4ebf3] mb-1">
         <HookWordmark size="hero" />
         <p className="fly-in mt-3 text-base font-bold text-brand-700">나에게 맞춘 하루 3문장 비즈니스 영어</p>
-        <p className="fly-in-delay mt-1 px-4 text-xs text-gray-600">내 입에 착 붙는 한마디, <b className="text-brand-800">훅(Hook)</b>으로 만들어요</p>
       </div>
       <p className="mt-2 mb-1 px-1 text-xs font-semibold text-brand-700">필요한 말부터, 입에 붙을 때까지</p>
       <ComposerBox profile={profile} onStart={onStartCustom} minimal onSubmit={() => { setMenuMode(null); setActiveSentence(null); }} />
