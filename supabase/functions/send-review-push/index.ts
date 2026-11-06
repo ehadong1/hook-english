@@ -20,9 +20,23 @@ const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") ?? "https://ehadong1.github.
 
 const kstDate = (d: Date) => new Date(d.getTime() + 9 * 3600 * 1000).toISOString().slice(0, 10);
 
+// 서비스 롤 요청인지 확인합니다. (Supabase 게이트웨이가 이미 서명을 검증한 뒤라서, 토큰 안의 role 값만 보면 됩니다.
+// 공개 anon 키는 role 이 "anon" 이라 통과하지 못합니다. 키 표기 방식이 달라도(구/신) 동작하도록 값 비교와 role 확인을 함께 씁니다.)
+function isServiceRole(bearer: string): boolean {
+  if (!bearer) return false;
+  if (SERVICE_KEY && bearer === SERVICE_KEY) return true;
+  try {
+    const payload = bearer.split(".")[1];
+    const json = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+    return json?.role === "service_role";
+  } catch {
+    return false;
+  }
+}
+
 Deno.serve(async (req) => {
   const bearer = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
-  if (!SERVICE_KEY || bearer !== SERVICE_KEY) {
+  if (!isServiceRole(bearer)) {
     return new Response(JSON.stringify({ error: "forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
   }
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
