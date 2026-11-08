@@ -206,6 +206,8 @@ RUBRIC_SYSTEM_PROMPT = """당신은 비즈니스 영어 콘텐츠를 검수하�
   "korean_meaning": "한글 뜻",
   "tone": "formal | neutral | casual 중 하나",
   "situation": "이 표현을 쓸 만한 상황 (한글, 예: 이메일 회신, 화상회의)",
+  "situation_tag": "다음 4개 중 가장 가까운 것 하나: 외국인 동료와 일상 대화 | 화상회의 및 발표 | 이메일 및 문서 | 해외 출장 및 여행",
+  "grammar_key": "다음 중 가장 가까운 것 하나: {keys} (맞는 게 없으면 idiomaticExpression)",
   "note": "이 표현이 왜 자연스러운지/언제 쓰는지 한 줄 설명 (한글)",
   "score": 1~5 정수,
   "reason": "이 점수를 준 이유 한 줄 (한글)"
@@ -244,7 +246,7 @@ def extract_with_gpt(label: str, snippets: list[dict]) -> list[dict]:
         temperature=0.2,
         response_format={"type": "json_object"},
         messages=[
-            {"role": "system", "content": RUBRIC_SYSTEM_PROMPT.format(label=label)},
+            {"role": "system", "content": RUBRIC_SYSTEM_PROMPT.format(label=label, keys=", ".join(GRAMMAR_TAXONOMY.keys()))},
             {"role": "user", "content": combined},
         ],
     )
@@ -275,15 +277,22 @@ def keyword_filter_ok(grammar_key: str, english: str) -> bool:
     return bool(re.search(pattern, english, re.IGNORECASE))
 
 
-def verify_independently(label: str, english: str) -> dict:
+def verify_independently(label: str, english: str, situation_mode: bool = False) -> dict:
     """1차 추출과 다른 모델(gpt-4o)로 독립 재채점. 실패하면 보수적으로 낮은 점수 반환."""
+    prompt = VERIFIER_SYSTEM_PROMPT.format(label=label)
+    if situation_mode:
+        # 상황별 수집은 특정 문법 패턴이 아니라 "실제로 쓰는 업무 표현인가"만 봅니다.
+        prompt = prompt.replace(
+            f'- "{label}" 패턴이 문장에 실제로 나타나지 않는 경우',
+            "- 업무 상황에서 실제로 자주 쓰는 자연스러운 표현이 아닌 경우(어색하거나 교과서적인 경우)",
+        )
     try:
         response = client.chat.completions.create(
             model=VERIFIER_MODEL,
             temperature=0,
             response_format={"type": "json_object"},
             messages=[
-                {"role": "system", "content": VERIFIER_SYSTEM_PROMPT.format(label=label)},
+                {"role": "system", "content": prompt},
                 {"role": "user", "content": f'예문: "{english}"'},
             ],
         )
@@ -293,20 +302,102 @@ def verify_independently(label: str, english: str) -> dict:
         return {"score": 0, "is_meta_sentence": False, "reason": f"2차 검수 호출 실패: {e}"}
 
 
+# 업무 상황별 수집 (앱 설문의 "주로 쓰는 상황" 4가지와 같은 이름). 매일 상황마다 검색어 1개씩 돌립니다.
+SITUATION_TAXONOMY = {
+    "화상회의 및 발표": [
+        "phrases to use in virtual meetings and presentations in business English with examples",
+        "how to interrupt politely, ask for clarification and wrap up in a meeting in English examples",
+        "business English phrases for giving updates and presenting results examples",
+        "how to disagree or ask questions in a video call at work in English examples",
+    ],
+    "이메일 및 문서": [
+        "professional email phrases native speakers use to follow up, reply and close an email examples",
+        "how to write a polite reminder or request in a business email in English examples",
+        "business email opening and closing lines native English speakers actually use",
+        "how to apologize for a delay or decline politely in a work email in English examples",
+    ],
+    "외국인 동료와 일상 대화": [
+        "small talk phrases with coworkers at the office in English examples",
+        "how to chat with colleagues at lunch or in the elevator in English natural phrases",
+        "friendly workplace conversation phrases for checking in on a teammate in English",
+        "natural ways to make plans, offer help and say thanks to coworkers in English examples",
+    ],
+    "해외 출장 및 여행": [
+        "business trip English phrases for airports, hotels and meeting clients examples",
+        "how to introduce yourself and make conversation at a conference or client dinner in English",
+        "phrases for scheduling meetings and confirming travel plans with overseas partners in English",
+        "networking phrases at business events in English examples",
+    ],
+}
+SITUATION_TAGS = list(SITUATION_TAXONOMY.keys())
+
+GRAMMAR_PER_RUN = 4  # 하루에 문법 유형 4개씩 돌려가며 수집 (11개 유형이 약 3일에 한 바퀴)
+MAX_VERIFY_PER_RUN = 40  # 하루 2차 검수(gpt-4o) 호출 상한 — 비용 안전장치
+
+
+def todays_grammar_keys(day: int) -> list[str]:
+    keys = list(GRAMMAR_TAXONOMY.keys())
+    if os.getenv("PHRASE_RUN_ALL") == "1":
+        return keys
+    start = (day * GRAMMAR_PER_RUN) % len(keys)
+    return [keys[(start + i) % len(keys)] for i in range(GRAMMAR_PER_RUN)]
+
+
+def load_existing_english() -> set:
+    seen: set = set()
+    page = 0
+    while True:
+        try:
+            rows = supabase.table("hook_phrase_bank").select("english").range(page * 1000, page * 1000 + 999).execute().data
+        except Exception:
+            break
+        for r in rows:
+            seen.add(r["english"].strip().lower())
+        if len(rows) < 1000:
+            break
+        page += 1
+    return seen
+
+
+def insert_row(row: dict) -> None:
+    try:
+        supabase.table("hook_phrase_bank").insert(row).execute()
+    except Exception as e:
+        # v2 마이그레이션(situation_tag 컬럼) 전이라면, 그 컬럼 없이 다시 저장합니다.
+        if "situation_tag" in str(e) and "situation_tag" in row:
+            row = {k: v for k, v in row.items() if k != "situation_tag"}
+            supabase.table("hook_phrase_bank").insert(row).execute()
+        else:
+            raise
+
+
 def main():
     APPROVE_THRESHOLD = 5  # 이 점수 이상만 자동 승인(approved), 나머지는 사람이 검토(pending_review)
     MAX_WORDS = 22  # 이보다 긴 문장은 기사 본문일 가능성이 높아 바로 거부
     total_inserted = 0
     total_approved = 0
+    verify_calls = 0
+    day = int(time.time() // 86400)
+    seen = load_existing_english()
+    print(f"현재 표현 뱅크에 저장된 표현: {len(seen)}개")
 
-    for grammar_key, info in GRAMMAR_TAXONOMY.items():
-        label = info["label"]
-        print(f"\n=== {grammar_key} ({label}) ===")
+    # 작업 목록: (kind, key, label, query, fixed_situation)
+    jobs = []
+    for gk in todays_grammar_keys(day):
+        info = GRAMMAR_TAXONOMY[gk]
+        qs = info["queries"]
+        jobs.append(("grammar", gk, info["label"], qs[(day // 3) % len(qs)], None))
+    for tag, qs in SITUATION_TAXONOMY.items():
+        jobs.append(("situation", tag, f"비즈니스 실용 표현 (상황: {tag})", qs[day % len(qs)], tag))
 
-        query = pick_query(info)
+    for kind, key, label, query, fixed_situation in jobs:
+        print(f"\n=== [{kind}] {key} ===")
+        if verify_calls >= MAX_VERIFY_PER_RUN:
+            print("  ⏹️ 오늘 검수 호출 상한에 도달해 나머지는 다음에 합니다.")
+            break
         print(f"  🔎 Exa 검색: {query}")
         try:
-            results = exa_search(query)
+            results = exa_search(query, 4 if kind == "situation" else 3)
         except Exception as e:
             print(f"  ❌ Exa 검색 실패: {e}")
             continue
@@ -316,19 +407,22 @@ def main():
         items = extract_with_gpt(label, results)
         print(f"  → 후보 {len(items)}개")
 
-        # 이미 저장된 같은 예문은 다시 넣지 않습니다.
-        try:
-            existing = {r["english"].strip().lower() for r in supabase.table("hook_phrase_bank").select("english").eq("grammar_key", grammar_key).execute().data}
-        except Exception:
-            existing = set()
-
         for item in items:
             english = item.get("english", "")
             score1 = item.get("score", 0)
-            if english.strip().lower() in existing:
-                print(f"  ⏭️ 이미 있음: {english!r}")
+            if not english or english.strip().lower() in seen:
+                print(f"  ⏭️ 이미 있음/빈 문장: {english!r}")
                 continue
-            existing.add(english.strip().lower())
+            seen.add(english.strip().lower())
+
+            if kind == "grammar":
+                grammar_key = key
+            else:
+                gk = item.get("grammar_key")
+                grammar_key = gk if gk in GRAMMAR_TAXONOMY else "idiomaticExpression"
+            tag = fixed_situation or item.get("situation_tag")
+            if tag not in SITUATION_TAGS:
+                tag = None
 
             n_words = len(english.split())
             if n_words > MAX_WORDS or n_words < 2 or "/" in english or "…" in english or "..." in english:
@@ -336,13 +430,19 @@ def main():
                 combined_score = 0
                 reason = f"기계 필터 거부: 길이({n_words}단어) 또는 미완성 표기(/, …)"
                 icon = "🚫"
-            elif not keyword_filter_ok(grammar_key, english):
+            elif kind == "grammar" and not keyword_filter_ok(grammar_key, english):
                 status = "rejected"
                 combined_score = 0
                 reason = f"1차 기계 필터 거부: '{label}' 패턴 키워드가 문장에 없음"
                 icon = "🚫"
+            elif verify_calls >= MAX_VERIFY_PER_RUN:
+                status = "pending_review"
+                combined_score = score1
+                reason = "오늘 2차 검수 상한 초과 — 사람 확인 필요"
+                icon = "🟡"
             else:
-                v = verify_independently(label, english)
+                verify_calls += 1
+                v = verify_independently(label, english, situation_mode=(kind == "situation"))
                 score2 = v.get("score", 0)
                 combined_score = min(score1, score2)  # 보수적으로 둘 중 낮은 점수 채택
                 if v.get("is_meta_sentence"):
@@ -365,6 +465,7 @@ def main():
                 "korean_meaning": item.get("korean_meaning", ""),
                 "tone": item.get("tone", "neutral"),
                 "situation": item.get("situation", ""),
+                "situation_tag": tag,
                 "note": item.get("note", ""),
                 "source_url": find_source_url(english, results),
                 "verified_score": combined_score,
@@ -372,7 +473,7 @@ def main():
                 "status": status,
             }
             try:
-                supabase.table("hook_phrase_bank").insert(row).execute()
+                insert_row(row)
                 total_inserted += 1
                 if status == "approved":
                     total_approved += 1
@@ -382,9 +483,8 @@ def main():
 
         time.sleep(1)  # API rate limit 여유
 
-    print(f"\n총 {total_inserted}개 저장 (그중 {total_approved}개 자동 승인).")
-    print("Supabase 대시보드 → Table Editor → hook_phrase_bank 에서 결과를 확인하세요.")
-    print("status='pending_review'인 항목은 사람이 한 번 더 보고 approved/rejected로 바꿔주는 걸 권장합니다.")
+    print(f"\n총 {total_inserted}개 저장 (그중 {total_approved}개 자동 승인). 2차 검수 호출 {verify_calls}회.")
+    print("status='pending_review'인 항목은 앱의 '표현 검수' 화면(관리자)에서 승인/반려할 수 있습니다.")
 
 
 if __name__ == "__main__":

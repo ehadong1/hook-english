@@ -172,6 +172,89 @@ function mapPhraseRow(row: any): PhraseBankEntry {
   };
 }
 
+/* ---------------- 표현 제안 · 관리자 검수 ---------------- */
+
+export const PHRASE_SITUATIONS = ["화상회의 및 발표", "이메일 및 문서", "외국인 동료와 일상 대화", "해외 출장 및 여행"] as const;
+
+export type PendingPhrase = {
+  id: string;
+  english: string;
+  korean: string;
+  situationTag?: string;
+  note?: string;
+  sourceType: string;
+  score?: number;
+  reason?: string;
+  sourceUrl?: string;
+};
+
+/** 내가 관리자인지 (hook_admins 에 등록된 계정) */
+export async function isPhraseAdmin(): Promise<boolean> {
+  if (!supabase) return false;
+  try {
+    const { data, error } = await supabase.rpc("is_hook_admin");
+    return !error && data === true;
+  } catch {
+    return false;
+  }
+}
+
+/** 로그인한 사용자가 표현을 제안합니다. 항상 "검토 대기"로 저장돼요. 실패하면 사용자에게 보여줄 문장을 돌려줍니다. */
+export async function submitPhrase(input: { english: string; korean: string; situationTag: string; note?: string }): Promise<string | null> {
+  if (!supabase) return "서버에 연결되어 있지 않아요.";
+  const { data } = await supabase.auth.getSession();
+  const uid = data.session?.user?.id;
+  if (!uid) return "로그인이 필요해요.";
+  const { error } = await supabase.from("hook_phrase_bank").insert({
+    grammar_key: "idiomaticExpression",
+    english: input.english.trim(),
+    korean_meaning: input.korean.trim(),
+    situation_tag: input.situationTag,
+    situation: input.situationTag,
+    note: input.note?.trim() || null,
+    tone: "neutral",
+    status: "pending_review",
+    source_type: "user",
+    submitted_by: uid,
+    verified_reason: "사용자 제안 — 관리자 확인 필요",
+  });
+  if (error) {
+    if (/row-level security|policy/i.test(error.message)) return "오늘은 더 제안할 수 없어요. (하루 10개까지, 로그인 필요)";
+    return "저장하지 못했어요. 잠시 후 다시 시도해 주세요.";
+  }
+  return null;
+}
+
+/** (관리자) 검토 대기 표현 목록 */
+export async function fetchPendingPhrases(limit = 30): Promise<PendingPhrase[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("hook_phrase_bank")
+    .select("id, english, korean_meaning, situation_tag, note, source_type, verified_score, verified_reason, source_url")
+    .eq("status", "pending_review")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return data.map((r: any) => ({
+    id: r.id,
+    english: r.english,
+    korean: r.korean_meaning,
+    situationTag: r.situation_tag || undefined,
+    note: r.note || undefined,
+    sourceType: r.source_type || "collector",
+    score: r.verified_score ?? undefined,
+    reason: r.verified_reason || undefined,
+    sourceUrl: r.source_url || undefined,
+  }));
+}
+
+/** (관리자) 표현 승인/반려 */
+export async function setPhraseStatus(id: string, status: "approved" | "rejected"): Promise<boolean> {
+  if (!supabase) return false;
+  const { error } = await supabase.from("hook_phrase_bank").update({ status }).eq("id", id);
+  return !error;
+}
+
 /** 검수 완료(approved)된 표현 중 가장 최근 것들 (추천 문장 섞어 넣기용) */
 export async function fetchLatestPhrases(limit = 30): Promise<PhraseBankEntry[]> {
   if (!supabase) return [];

@@ -2,9 +2,14 @@ name: Phrase Bank Collector
 
 on:
   schedule:
-    # 매주 월요일 03:00 UTC = 한국시간 낮 12:00
-    - cron: "0 3 * * 1"
-  workflow_dispatch: {}
+    # 매일 03:00 UTC = 한국시간 낮 12:00 (하루에 문법 유형 4개 + 업무 상황 4가지를 돌려가며 수집)
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      run_all:
+        description: "문법 유형 11개를 한 번에 전부 수집 (비용이 더 듭니다)"
+        type: boolean
+        default: false
 
 jobs:
   collect:
@@ -24,4 +29,5 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          PHRASE_RUN_ALL: ${{ inputs.run_all && '1' || '0' }}
         run: python phrase_bank_builder.py

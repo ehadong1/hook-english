@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Bell, Check, Loader2 } from "lucide-react";
 import { disablePush, enablePush, getPushState, type PushState } from "../lib/push";
+import { isPhraseAdmin } from "../lib/persistence";
+import { ReviewPhrasesSheet, SubmitPhraseSheet } from "./PhraseSheets";
 import { BottomSheet } from "./common";
 import { linkGoogleAccount, signInWithGoogle, signOutUser, isSupabaseConfigured, type AuthInfo } from "../lib/supabaseClient";
 import { legalUrl, markConsentPending } from "../lib/consent";
@@ -92,6 +94,9 @@ export function AccountSheet({ auth, linkConflict, onClose }: Props) {
   const [showExisting, setShowExisting] = useState(linkConflict);
 
   const loggedIn = !!auth && !auth.isAnonymous;
+  const [admin, setAdmin] = useState(false);
+  const [phraseView, setPhraseView] = useState<null | "submit" | "review">(null);
+  useEffect(() => { if (loggedIn) isPhraseAdmin().then(setAdmin); }, [loggedIn]);
   const agreed = terms && privacy;
   const allChecked = agreed;
   const setAll = (v: boolean) => { setTerms(v); setPrivacy(v); };
@@ -132,6 +137,12 @@ export function AccountSheet({ auth, linkConflict, onClose }: Props) {
         </div>
         <p className="text-sm text-gray-700 leading-relaxed">나만의 영어노트와 학습 기록이 이 계정에 저장돼요. 다른 기기에서도 같은 구글 계정으로 로그인하면 이어서 쓸 수 있어요.</p>
         <PushSection />
+        <div className="mt-3 space-y-2">
+          <button type="button" onClick={() => setPhraseView("submit")} className="w-full py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-800">비즈니스 표현 제안하기</button>
+          {admin && <button type="button" onClick={() => setPhraseView("review")} className="w-full py-3 rounded-xl bg-brand-50 text-sm font-semibold text-brand-700">표현 검수 (관리자)</button>}
+        </div>
+        {phraseView === "submit" && <SubmitPhraseSheet onClose={() => setPhraseView(null)} />}
+        {phraseView === "review" && <ReviewPhrasesSheet onClose={() => setPhraseView(null)} />}
         <button type="button" onClick={logout} disabled={busy} className="w-full mt-5 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 disabled:opacity-60">
           {busy ? "처리 중..." : "로그아웃"}
         </button>
