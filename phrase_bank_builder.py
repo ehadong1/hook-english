@@ -277,14 +277,24 @@ def keyword_filter_ok(grammar_key: str, english: str) -> bool:
     return bool(re.search(pattern, english, re.IGNORECASE))
 
 
-def verify_independently(label: str, english: str, situation_mode: bool = False) -> dict:
+def verify_independently(label: str, english: str, situation_mode: bool = False, fresh_mode: bool = False) -> dict:
     """1차 추출과 다른 모델(gpt-4o)로 독립 재채점. 실패하면 보수적으로 낮은 점수 반환."""
     prompt = VERIFIER_SYSTEM_PROMPT.format(label=label)
-    if situation_mode:
-        # 상황별 수집은 특정 문법 패턴이 아니라 "실제로 쓰는 업무 표현인가"만 봅니다.
+    if situation_mode or fresh_mode:
+        # 상황별·최신 수집은 특정 문법 패턴이 아니라 "실제로 쓰는 업무 표현인가"만 봅니다.
         prompt = prompt.replace(
             f'- "{label}" 패턴이 문장에 실제로 나타나지 않는 경우',
             "- 업무 상황에서 실제로 자주 쓰는 자연스러운 표현이 아닌 경우(어색하거나 교과서적인 경우)",
+        )
+    if fresh_mode:
+        # 최신 표현은 짧은 구(예: "double down on")도 허용하고, 회사·사람 이름이 박힌 문장은 거부합니다.
+        prompt = prompt.replace(
+            "- 문장 조각, 말줄임표나 슬래시(/)가 섞인 미완성 표현",
+            "- 말줄임표나 슬래시(/)가 섞인 미완성 표현 (2~10단어의 짧은 관용구·구 단위 표현은 허용)\n"
+            "- 특정 회사·사람·제품 이름이나 수치가 들어 있어 다른 상황에 못 쓰는 문장",
+        ).replace(
+            "앞뒤 글 없이 그대로 외워 쓸 수 있는 짧은 완성 표현이면 true",
+            "앞뒤 글 없이 그대로 외워 쓸 수 있는 짧은 표현(구 단위 포함)이면 true",
         )
     try:
         response = client.chat.completions.create(
@@ -300,6 +310,101 @@ def verify_independently(label: str, english: str, situation_mode: bool = False)
     except Exception as e:
         print(f"  ⚠️ 2차 검수 실패(안전하게 보류 처리): {e}")
         return {"score": 0, "is_meta_sentence": False, "reason": f"2차 검수 호출 실패: {e}"}
+
+
+# ---- 최신 표현 수집: 최근 45일의 실제 업무 뉴스(경영진 발언·사내 공지·실적 발표 등)에서 "요즘 쓰는 말"을 뽑습니다.
+FRESH_DAYS = 45
+FRESH_PER_RUN = 3  # 하루에 최신 검색 3개
+FRESH_QUERIES = [
+    "CEO memo to employees announces new strategy AI restructuring quotes",
+    "earnings call CFO said we are focused on priorities for next quarter",
+    "analyst question earnings call management responded we continue to see",
+    "executive says in interview about how teams work with AI at the office",
+    "new corporate buzzwords and workplace jargon everyone is using this year",
+    "return to office mandate managers told employees memo said",
+    "startup founder says about launching product customers feedback quotes",
+    "company announces reorganization layoffs memo says we are streamlining",
+    "manager advice how leaders communicate with their teams this year says",
+    "business leaders explain how they handle tough negotiations and deadlines says",
+]
+
+FRESH_RUBRIC_PROMPT = """당신은 비즈니스 영어 콘텐츠를 검수하는 깐깐한 원어민 에디터입니다.
+아래는 최근 몇 주 안에 나온 실제 비즈니스 뉴스 조각들입니다. 이 조각들 "안에 실제로 등장하는" 표현 중에서,
+한국 직장인이 지금 회의·이메일·대화에서 그대로 써볼 만한 "요즘 쓰는 비즈니스 표현"을 최대 3개 뽑으세요.
+
+규칙:
+- 텍스트에 실제로 있는 표현만 뽑으세요. 지어내지 마세요. 원문에서 그대로 가져오거나 아주 약간만 다듬으세요.
+- 2~12단어의 짧은 표현(관용구, 업계 유행어, 자주 쓰는 문장 틀, 또는 짧은 완성 문장)만 뽑으세요.
+- 특정 회사·사람·제품 이름, 숫자, 날짜가 들어간 문장은 뽑지 마세요. 다른 상황에서도 쓸 수 있어야 합니다.
+- 너무 흔하고 오래된 표현(예: "Thank you", "Best regards", "Let me know")은 뽑지 마세요. "요즘 이런 말을 쓰는구나" 싶은 표현을 우선하세요.
+- 기사 기자가 쓴 설명문이 아니라, 사람들이 실제로 말하거나 쓰는 표현이어야 합니다.
+- 적합한 표현이 없으면 빈 리스트를 반환하세요. 억지로 채우지 마세요.
+
+각 항목은 다음 JSON 스키마를 따르세요:
+{{
+  "english": "원문에서 가져온 표현",
+  "korean_meaning": "한글 뜻",
+  "tone": "formal | neutral | casual 중 하나",
+  "situation": "이 표현을 쓸 만한 상황 (한글)",
+  "situation_tag": "다음 4개 중 가장 가까운 것 하나: 외국인 동료와 일상 대화 | 화상회의 및 발표 | 이메일 및 문서 | 해외 출장 및 여행",
+  "grammar_key": "다음 중 가장 가까운 것 하나: {keys} (맞는 게 없으면 idiomaticExpression)",
+  "note": "왜 요즘 쓰는 표현인지, 어떤 맥락에서 쓰는지 한 줄 (한글)",
+  "score": 1~5 정수,
+  "reason": "이 점수를 준 이유 한 줄 (한글)"
+}}
+
+반드시 {{"items": [...]}} 형태의 JSON 객체 하나로만 응답하세요."""
+
+
+def exa_search_fresh(query: str, num_results: int = 5) -> list[dict]:
+    resp = requests.post(
+        "https://api.exa.ai/search",
+        headers={"x-api-key": EXA_API_KEY, "Content-Type": "application/json"},
+        json={
+            "query": query,
+            "numResults": num_results,
+            "category": "news",
+            "contents": {"text": {"maxCharacters": 1800}},
+            "startPublishedDate": time.strftime("%Y-%m-%dT00:00:00.000Z", time.gmtime(time.time() - FRESH_DAYS * 86400)),
+        },
+        timeout=30,
+    )
+    resp.raise_for_status()
+    return resp.json().get("results", [])
+
+
+def extract_fresh_with_gpt(snippets: list[dict]) -> list[dict]:
+    combined = "\n\n---\n\n".join(
+        f"[출처: {s.get('url', '알 수 없음')} / 게시일: {s.get('publishedDate', '알 수 없음')}]\n{s.get('text', '')}" for s in snippets
+    )
+    if not combined.strip():
+        return []
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        temperature=0.2,
+        response_format={"type": "json_object"},
+        messages=[
+            {"role": "system", "content": FRESH_RUBRIC_PROMPT.format(keys=", ".join(GRAMMAR_TAXONOMY.keys()))},
+            {"role": "user", "content": combined},
+        ],
+    )
+    try:
+        return json.loads(response.choices[0].message.content).get("items", [])
+    except Exception as e:
+        print(f"  ⚠️ GPT 응답 파싱 실패: {e}")
+        return []
+
+
+def find_source_result(english: str, results: list[dict]):
+    """예문이 실제로 들어 있는 글(결과 1건)을 찾습니다. 못 찾으면 None."""
+    needle = re.sub(r"\s+", " ", english).strip().lower()[:45]
+    if not needle:
+        return None
+    for r in results:
+        text = re.sub(r"\s+", " ", r.get("text", "") or "").lower()
+        if needle in text:
+            return r
+    return None
 
 
 # 업무 상황별 수집 (앱 설문의 "주로 쓰는 상황" 4가지와 같은 이름). 매일 상황마다 검색어 1개씩 돌립니다.
@@ -359,14 +464,18 @@ def load_existing_english() -> set:
     return seen
 
 
+OPTIONAL_COLUMNS = ("situation_tag", "source_published_at")
+
+
 def insert_row(row: dict) -> None:
     try:
         supabase.table("hook_phrase_bank").insert(row).execute()
     except Exception as e:
-        # v2 마이그레이션(situation_tag 컬럼) 전이라면, 그 컬럼 없이 다시 저장합니다.
-        if "situation_tag" in str(e) and "situation_tag" in row:
-            row = {k: v for k, v in row.items() if k != "situation_tag"}
-            supabase.table("hook_phrase_bank").insert(row).execute()
+        # 아직 마이그레이션 전이라 일부 컬럼이 없다면, 그 컬럼 없이 다시 저장합니다.
+        msg = str(e)
+        strip = [c for c in OPTIONAL_COLUMNS if c in msg and c in row]
+        if strip:
+            supabase.table("hook_phrase_bank").insert({k: v for k, v in row.items() if k not in strip}).execute()
         else:
             raise
 
@@ -389,6 +498,9 @@ def main():
         jobs.append(("grammar", gk, info["label"], qs[(day // 3) % len(qs)], None))
     for tag, qs in SITUATION_TAXONOMY.items():
         jobs.append(("situation", tag, f"비즈니스 실용 표현 (상황: {tag})", qs[day % len(qs)], tag))
+    for i in range(FRESH_PER_RUN):
+        q = FRESH_QUERIES[(day * FRESH_PER_RUN + i) % len(FRESH_QUERIES)]
+        jobs.insert(i * 2, ("fresh", f"fresh-{i + 1}", "최신 비즈니스 표현", q, None))  # 앞쪽에 섞어 넣어 상한에 걸려도 최신 수집이 먼저 돕니다
 
     for kind, key, label, query, fixed_situation in jobs:
         print(f"\n=== [{kind}] {key} ===")
@@ -397,14 +509,14 @@ def main():
             break
         print(f"  🔎 Exa 검색: {query}")
         try:
-            results = exa_search(query, 4 if kind == "situation" else 3)
+            results = exa_search_fresh(query, 5) if kind == "fresh" else exa_search(query, 4 if kind == "situation" else 3)
         except Exception as e:
             print(f"  ❌ Exa 검색 실패: {e}")
             continue
         print(f"  → {len(results)}개 소스 발견")
 
         print("  🤖 GPT로 예문 추출 + 채점 중...")
-        items = extract_with_gpt(label, results)
+        items = extract_fresh_with_gpt(results) if kind == "fresh" else extract_with_gpt(label, results)
         print(f"  → 후보 {len(items)}개")
 
         for item in items:
@@ -442,7 +554,7 @@ def main():
                 icon = "🟡"
             else:
                 verify_calls += 1
-                v = verify_independently(label, english, situation_mode=(kind == "situation"))
+                v = verify_independently(label, english, situation_mode=(kind == "situation"), fresh_mode=(kind == "fresh"))
                 score2 = v.get("score", 0)
                 combined_score = min(score1, score2)  # 보수적으로 둘 중 낮은 점수 채택
                 if v.get("is_meta_sentence"):
@@ -467,7 +579,9 @@ def main():
                 "situation": item.get("situation", ""),
                 "situation_tag": tag,
                 "note": item.get("note", ""),
-                "source_url": find_source_url(english, results),
+                "source_url": (src.get("url") if (src := find_source_result(english, results)) else None),
+                "source_published_at": (src.get("publishedDate") if src else None) if kind == "fresh" else None,
+                "source_type": "collector_fresh" if kind == "fresh" else "collector",
                 "verified_score": combined_score,
                 "verified_reason": reason,
                 "status": status,
