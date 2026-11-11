@@ -246,6 +246,12 @@ export default function App() {
     );
   }
 
+  // 시작 화면 바꾸기 (내 계정 화면): "own" 또는 주어진 문장 종류(common/news/presentation)
+  const changeStart = (choice: string) => {
+    const next = normalizeProfile({ ...profile, startMode: choice === "own" ? "own" : "given", givenSource: choice === "own" ? undefined : choice });
+    setProfile(next);
+    saveProfileRemote(deviceId, next);
+  };
   const recentSaved = [...savedSentences].reverse().slice(0, 3);
   const needSentence = (what: string) => (
     <div className="px-5 pt-10 pb-6">
@@ -325,7 +331,7 @@ export default function App() {
           onSelectSentence={handleReviewFromNotebook}
         />
       )}
-      {modal === "account" && <AccountSheet auth={auth} linkConflict={linkConflict} onClose={() => { setModal(null); setLinkConflict(false); }} />}
+      {modal === "account" && <AccountSheet auth={auth} linkConflict={linkConflict} onClose={() => { setModal(null); setLinkConflict(false); }} startChoice={profile.startMode === "given" ? (profile.givenSource || "common") : "own"} onChangeStart={changeStart} />}
       {modal === "voice" && <VoiceSettings voices={voices} selected={voice} onSelect={setVoice} onClose={() => setModal(null)} />}
 
       <Toast message={toast} />

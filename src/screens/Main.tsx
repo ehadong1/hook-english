@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
-import { Mic, Check, X, Star, Sparkles, Languages, Loader2, Newspaper, PenLine, Notebook } from "lucide-react";
+import { Mic, Check, X, Star, Sparkles, Languages, Loader2, Newspaper, PenLine, Notebook, Presentation } from "lucide-react";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
-import { fetchLatestPhrases, fetchNewsSentences, type PhraseBankEntry } from "../lib/persistence";
+import { fetchLatestPhrases, fetchNewsSentences, fetchPhrasesBySituation, type PhraseBankEntry } from "../lib/persistence";
 import { SpeakButton } from "../components/common";
 import { TOPIC_TO_BANK } from "../data/survey";
-import { getNewsSentences, getRecommendedSentences, mixFreshPhrases, rankNewsForProfile } from "../lib/personalization";
+import { getNewsSentences, getRecommendedSentences, mixFreshPhrases, phraseToSentence, rankNewsForProfile } from "../lib/personalization";
 import { createRecognizer, isSTTSupported } from "../lib/speech";
 import type { HistoryItem, Profile, Sentence, StoreItem } from "../types";
 import { containsKorean, describeLlmFailure, translateKoreanToEnglish, writingFeedbackProvider } from "../lib/translate";
@@ -323,7 +323,12 @@ type MainTabProps = {
 
 export function MainTab({ profile, activeSentence, setActiveSentence, history, onSaveWord, onSaveSentence, savedIds, onStartCustom, savedSentences, onGoTab, onOpenNotes }: MainTabProps) {
   const menuOpen = true; // 학습 메뉴는 접지 않고 항상 보여줍니다.
-  const [menuMode, setMenuMode] = useState<string | null>(null);
+  // 설문에서 "주어진 문장부터"를 고른 사람은 고른 종류의 문장을 첫 화면 맨 위에 바로 보여줍니다.
+  const startMode = profile.startMode === "given" ? "given" : "own";
+  const SOURCE_TO_MODE: Record<string, string> = { common: "recommended", news: "news", presentation: "presentation" };
+  const initialMode = startMode === "given" ? (SOURCE_TO_MODE[profile.givenSource] || "recommended") : null;
+  const [menuMode, setMenuMode] = useState<string | null>(initialMode);
+  useEffect(() => { setMenuMode(initialMode); }, [initialMode]);
   const baseRecommended = useMemo(() => getRecommendedSentences(profile), [profile]);
 
   // 표현 뱅크(Exa로 계속 수집·검수)의 최신 표현을 추천 문장에 섞어 넣습니다.
@@ -362,6 +367,25 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
     return () => { cancelled = true; };
   }, [profile, bankTopics]);
 
+  // 발표 표현: 표현 뱅크에서 "화상회의 및 발표" 상황으로 승인된 표현. 모자라면 추천 문장 중 발표 상황 문장으로 채웁니다.
+  const [presentationPool, setPresentationPool] = useState<PhraseBankEntry[]>([]);
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let cancelled = false;
+    fetchPhrasesBySituation("화상회의 및 발표", 40).then((r) => { if (!cancelled) setPresentationPool(r); }).catch(() => { /* 비어 있으면 추천으로 대체 */ });
+    return () => { cancelled = true; };
+  }, []);
+  const presentationSentences = useMemo(() => {
+    const day = Math.floor(Date.now() / 86400000);
+    const pool = presentationPool.filter((p) => !savedIds.has(`pb-${p.id}`) && p.english.length <= 110);
+    const start = pool.length ? (day * 3) % pool.length : 0;
+    const rotated = [...pool.slice(start), ...pool.slice(0, start)].slice(0, 3).map(phraseToSentence);
+    if (rotated.length >= 3) return rotated;
+    const fillers = baseRecommended.filter((x) => (x.situations || []).includes("화상회의 및 발표") && !rotated.some((r) => r.id === x.id));
+    const rest = baseRecommended.filter((x) => !fillers.includes(x) && !rotated.some((r) => r.id === x.id));
+    return [...rotated, ...fillers, ...rest].slice(0, 3);
+  }, [presentationPool, baseRecommended, savedIds]);
+
   const weaknesses = profile.weaknesses || [profile.weakness].filter(Boolean);
   const autoOpen = weaknesses.includes("문법") || weaknesses.includes("문장 구성");
   const openMenu = (mode: string) => { setMenuMode(mode); };
@@ -376,7 +400,7 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
   }, [activeId]);
 
   const listed = menuOpen
-    ? menuMode === "recommended" ? recommended : menuMode === "news" ? newsSentences : []
+    ? menuMode === "recommended" ? recommended : menuMode === "news" ? newsSentences : menuMode === "presentation" ? presentationSentences : []
     : [];
   const inlineShown = !!activeSentence && listed.some((s) => s.id === activeSentence.id);
 
@@ -407,12 +431,21 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
     </div>
   );
 
+  const listSection = (
+    <>
+      {menuMode === "recommended" && <div className="mt-4"><p className="text-xs font-bold text-gray-500 mb-2">내 설문(수준·업무 분야·말투)에 맞춘 추천 {recommended.length}문장</p><SentenceList sentences={recommended} activeId={activeSentence?.id} onSelect={setActiveSentence} renderDetail={activeCard} /></div>}
+      {menuMode === "news" && <div className="mt-4"><p className="text-xs font-bold text-gray-500 mb-2">내가 고른 업무 분야의 최신 뉴스 기반 {newsSentences.length}문장</p><SentenceList sentences={newsSentences} activeId={activeSentence?.id} onSelect={setActiveSentence} badge="NEWS" renderDetail={activeCard} /></div>}
+      {menuMode === "presentation" && <div className="mt-4"><p className="text-xs font-bold text-gray-500 mb-2">발표에서 쓰는 표현 {presentationSentences.length}문장</p><SentenceList sentences={presentationSentences} activeId={activeSentence?.id} onSelect={setActiveSentence} renderDetail={activeCard} /></div>}
+    </>
+  );
+
   return (
     <div className="px-4 pb-6">
       <div className="pt-5 pb-4 text-center rounded-2xl bg-gradient-to-b from-[#f4f7fb] via-white to-white border border-[#e4ebf3] mb-1">
         <HookWordmark size="hero" />
         <p className="fly-in mt-3 text-base font-bold text-brand-700">나에게 맞춘 하루 3문장 비즈니스 영어</p>
       </div>
+      {startMode === "given" && listSection}
       <p className="mt-2 mb-1 px-1 text-xs font-semibold text-brand-700">필요한 말부터, 입에 붙을 때까지 <span className="font-medium text-gray-500">· 번역 뒤 복습 일정까지 챙겨요</span></p>
       <ComposerBox profile={profile} onStart={onStartCustom} minimal onSubmit={() => { setMenuMode(null); setActiveSentence(null); }} />
       <RoutineGuide savedCount={savedSentences.length} onGo={onGoTab} onOpenNotes={onOpenNotes} />
@@ -420,9 +453,10 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
         <>
           <div className="mt-3">
             <p className="text-sm font-extrabold text-brand-700">학습하기 <span className="font-medium text-xs text-gray-500">· 좋은 문장을 골라 이해해요</span></p>
-            <div className="grid grid-cols-2 gap-2 mt-1.5">
+            <div className="grid grid-cols-3 gap-2 mt-1.5">
               <button onClick={() => openMenu("recommended")} className="p-3 rounded-2xl bg-brand-50 border border-brand-100 text-left"><Sparkles size={16} className="text-brand-600 mb-1" /><p className="text-xs font-bold text-brand-800">오늘의 추천 3문장</p><p className="text-[11px] text-gray-500 mt-0.5">내 수준·분야에 맞춰요</p></button>
               <button onClick={() => openMenu("news")} className="p-3 rounded-2xl bg-rose-50 border border-rose-100 text-left"><Newspaper size={16} className="text-rose-600 mb-1" /><p className="text-xs font-bold text-rose-800">최신 뉴스 3문장</p><p className="text-[11px] text-gray-500 mt-0.5">요즘 실제 기사 표현</p></button>
+              <button onClick={() => openMenu("presentation")} className="p-3 rounded-2xl bg-violet-50 border border-violet-100 text-left"><Presentation size={16} className="text-violet-600 mb-1" /><p className="text-xs font-bold text-violet-800">발표 표현</p><p className="text-[11px] text-gray-500 mt-0.5">오프닝·질의응답</p></button>
             </div>
           </div>
           <div className="mt-3">
@@ -432,8 +466,7 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
               <button onClick={() => openMenu("compose")} className="p-3 rounded-2xl bg-emerald-50 border border-emerald-100 text-left"><Notebook size={16} className="text-emerald-600 mb-1" /><p className="text-xs font-bold text-emerald-800">문장 만들어 보기</p><p className="text-[11px] text-gray-500 mt-0.5">배운 표현으로 새 문장</p></button>
             </div>
           </div>
-          {menuMode === "recommended" && <div className="mt-4"><p className="text-xs font-bold text-gray-500 mb-2">내 설문(수준·업무 분야·말투)에 맞춘 추천 {recommended.length}문장</p><SentenceList sentences={recommended} activeId={activeSentence?.id} onSelect={setActiveSentence} renderDetail={activeCard} /></div>}
-          {menuMode === "news" && <div className="mt-4"><p className="text-xs font-bold text-gray-500 mb-2">내가 고른 업무 분야의 최신 뉴스 기반 {newsSentences.length}문장</p><SentenceList sentences={newsSentences} activeId={activeSentence?.id} onSelect={setActiveSentence} badge="NEWS" renderDetail={activeCard} /></div>}
+          {startMode !== "given" && listSection}
           {(menuMode === "diary" || menuMode === "compose") && <WritingPractice profile={profile} mode={menuMode} savedSentences={savedSentences} onClose={() => setMenuMode(null)} />}
         </>
       )}

@@ -14,7 +14,43 @@ import { legalUrl, markConsentPending } from "../lib/consent";
    - 가입(로그인) 전에 이용약관·개인정보 수집 동의(필수)를 체크해야 합니다.
    ============================================================================ */
 
-type Props = { auth: AuthInfo | null; linkConflict: boolean; onClose: () => void };
+type Props = {
+  auth: AuthInfo | null;
+  linkConflict: boolean;
+  onClose: () => void;
+  startChoice: string; // "own" | "common" | "news" | "presentation"
+  onChangeStart: (choice: string) => void;
+};
+
+const START_CHOICES = [
+  { value: "own", label: "내 말부터" },
+  { value: "common", label: "업무 표현" },
+  { value: "news", label: "최신 뉴스" },
+  { value: "presentation", label: "발표 표현" },
+];
+
+/** 첫 화면을 어떻게 시작할지 바꿉니다. */
+function StartSection({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="mt-5 rounded-xl border border-gray-100 px-3.5 py-3">
+      <p className="text-sm font-bold text-gray-900">시작 화면</p>
+      <p className="text-xs text-gray-500 mt-0.5">앱을 열었을 때 먼저 보여줄 것을 골라요.</p>
+      <div className="grid grid-cols-2 gap-2 mt-2.5">
+        {START_CHOICES.map((c) => (
+          <button
+            key={c.value}
+            type="button"
+            aria-pressed={value === c.value}
+            onClick={() => onChange(c.value)}
+            className={`min-h-[40px] rounded-xl border-2 text-sm font-semibold ${value === c.value ? "bg-brand-600 border-brand-600 text-white" : "bg-gray-50 border-gray-100 text-gray-800"}`}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function Check2({ checked, onChange, label, href }: { checked: boolean; onChange: (v: boolean) => void; label: string; href: string }) {
   return (
@@ -86,7 +122,7 @@ function PushSection() {
   );
 }
 
-export function AccountSheet({ auth, linkConflict, onClose }: Props) {
+export function AccountSheet({ auth, linkConflict, onClose, startChoice, onChangeStart }: Props) {
   const [terms, setTerms] = useState(false);
   const [privacy, setPrivacy] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -136,6 +172,7 @@ export function AccountSheet({ auth, linkConflict, onClose }: Props) {
           </div>
         </div>
         <p className="text-sm text-gray-700 leading-relaxed">나만의 영어노트와 학습 기록이 이 계정에 저장돼요. 다른 기기에서도 같은 구글 계정으로 로그인하면 이어서 쓸 수 있어요.</p>
+        <StartSection value={startChoice} onChange={onChangeStart} />
         <PushSection />
         <div className="mt-3 space-y-2">
           <button type="button" onClick={() => setPhraseView("submit")} className="w-full py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-800">비즈니스 표현 제안하기</button>
@@ -194,6 +231,7 @@ export function AccountSheet({ auth, linkConflict, onClose }: Props) {
       {showExisting && (
         <p className="text-xs text-gray-500 mt-2 leading-relaxed text-center">이 기기에서 지금까지 쓴 기록은 계정에 합쳐지지 않고, 계정에 저장된 기록을 불러와요.</p>
       )}
+      <StartSection value={startChoice} onChange={onChangeStart} />
       <PushSection />
     </BottomSheet>
   );

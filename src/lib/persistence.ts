@@ -271,6 +271,20 @@ export async function fetchLatestPhrases(limit = 30): Promise<PhraseBankEntry[]>
   return data.map(mapPhraseRow);
 }
 
+/** 검수 완료(approved)된 표현 중 상황 태그가 맞는 것(예: "화상회의 및 발표")을 가져옵니다. 실패하면 빈 배열. */
+export async function fetchPhrasesBySituation(situationTag: string, limit = 30): Promise<PhraseBankEntry[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("hook_phrase_bank")
+    .select("id, grammar_key, english, korean_meaning, note, tone, situation, source_url, created_at")
+    .eq("status", "approved")
+    .eq("situation_tag", situationTag)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return data.map(mapPhraseRow);
+}
+
 /**
  * 검수 완료(approved)된 표현 뱅크에서, 해당 문법 키와 맞는 최신 표현을 가져옵니다.
  * (Exa로 계속 수집되는 원어민 비즈니스 표현 → "원어민은 이렇게도 말해요"에 사용)
