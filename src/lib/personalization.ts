@@ -130,5 +130,8 @@ export function getRoleplayScene(profile?: Profile) {
     "이메일 및 문서": "해외 파트너가 일정 변경을 요청하는 메시지를 보냈습니다. 정중하게 조율해야 합니다.",
     "해외 출장 및 여행": "출장 첫날, 현지 사무실에서 처음 만난 담당자와 미팅 일정을 조율하고 있습니다.",
   };
-  return map[profile?.situation] || map["화상회의 및 발표"];
+  if (profile?.situation && map[profile.situation]) return map[profile.situation];
+  // 상황을 고르지 않았다면 날짜마다 다른 장면으로 돌려요.
+  const keys = Object.keys(map);
+  return map[keys[Math.floor(Date.now() / 86400000) % keys.length]];
 }

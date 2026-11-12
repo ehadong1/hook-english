@@ -7,8 +7,9 @@ import type { Profile } from "../types";
 /* ============================================================================
    SECTION 8. 온보딩 (3페이지, 한 화면에 한 가지 결정)
    - 1페이지: 시작 방식 2가지(내 말부터 / 추천 문장부터)
-   - 2페이지: 주로 쓰는 상황(필수) + 업무 영역(선택)
-   - 3페이지: 영어 수준(슬라이더) + 말투, 그리고 접어 둔 "더 맞추기"(목적·어려운 점·학습 시간, 선택)
+   - 2페이지: 업무 분야(필수, 여러 개 가능)
+   - 3페이지: 영어 수준(슬라이더, 필수) + 말투, 그리고 눈에 띄는 "더 정확히 맞추기"(상황·목적·어려운 점·학습 시간, 선택)
+   상황은 문장마다 태그로 섞어 보여주고, 원하는 사람만 "더 정확히 맞추기"에서 고릅니다.
    답변 모양은 예전과 같아서(profile) 나머지 앱 로직은 그대로 동작합니다.
    ============================================================================ */
 
@@ -136,10 +137,10 @@ export function Onboarding({ onComplete }: { onComplete: (profile: Profile) => v
   // 필수는 "시작 방식(+문장 종류) · 주로 쓰는 상황 · 영어 수준" 뿐이에요. 나머지는 고르지 않아도 됩니다.
   const pageOk = [
     !!answers.startMode,
-    !!answers.situation,
+    Array.isArray(answers.topics) && answers.topics.length > 0,
     !!answers.level,
   ];
-  const titles = ["어떻게 시작할까요?", "어떤 상황에서 영어를 쓰세요?", "마지막이에요"];
+  const titles = ["어떻게 시작할까요?", "어느 분야 일을 하세요?", "마지막이에요"];
   const last = page === TOTAL_PAGES - 1;
 
   return (
@@ -166,24 +167,14 @@ export function Onboarding({ onComplete }: { onComplete: (profile: Profile) => v
 
         {page === 1 && (
           <>
-            <p className="text-sm text-gray-500 mt-1">예문과 대화 상황을 여기에 맞춰요.</p>
-            <div className="mt-5 grid grid-cols-1 gap-2">
-              {Q.situation.options.map((o) => (
-                <Chip key={o.value} title={o.desc} selected={answers.situation === o.value} onClick={() => set("situation", o.value)}>
+            <p className="text-sm text-gray-500 mt-1">그 분야 표현을 먼저 추천해요. 여러 개 골라도 돼요.</p>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              {Q.topics.options.map((o) => (
+                <Chip key={o.value} title={o.desc} selected={has("topics", o.value)} onClick={() => toggle("topics", o.value)}>
                   {o.label}
-                  <span className={`block text-xs font-medium mt-0.5 ${answers.situation === o.value ? "text-white/80" : "text-gray-500"}`}>{o.desc}</span>
                 </Chip>
               ))}
             </div>
-            <Section title="업무 영역 (선택)" sub="고르면 그 분야 표현을 먼저 추천해요. 건너뛰어도 돼요.">
-              <div className="grid grid-cols-2 gap-2">
-                {Q.topics.options.map((o) => (
-                  <Chip key={o.value} title={o.desc} selected={has("topics", o.value)} onClick={() => toggle("topics", o.value)}>
-                    {o.label}
-                  </Chip>
-                ))}
-              </div>
-            </Section>
           </>
         )}
 
@@ -203,11 +194,30 @@ export function Onboarding({ onComplete }: { onComplete: (profile: Profile) => v
               </div>
             </Section>
 
-            <button type="button" onClick={() => setShowMore((v) => !v)} aria-expanded={showMore} className="mt-6 text-sm font-semibold text-brand-700 underline">
-              {showMore ? "더 맞추기 접기" : "더 정확히 맞추고 싶다면 (선택)"}
+            <button
+              type="button"
+              onClick={() => setShowMore((v) => !v)}
+              aria-expanded={showMore}
+              className="mt-7 w-full rounded-2xl border-2 border-brand-200 bg-brand-50 px-4 py-3.5 text-left flex items-center gap-3 active:bg-brand-100"
+            >
+              <span className="flex-1">
+                <span className="block text-[15px] font-extrabold text-brand-800">더 정확히 맞추기 <span className="text-xs font-bold text-brand-500">(선택)</span></span>
+                <span className="block text-xs text-brand-700 mt-0.5">자주 쓰는 상황·목적·어려운 점을 고르면 추천이 더 정교해져요</span>
+              </span>
+              <span className="text-brand-700 text-lg font-bold" aria-hidden="true">{showMore ? "−" : "+"}</span>
             </button>
             {showMore && (
               <>
+                <Section title="주로 영어를 쓰는 상황은요?">
+                  <div className="grid grid-cols-1 gap-2">
+                    {Q.situation.options.map((o) => (
+                      <Chip key={o.value} title={o.desc} selected={answers.situation === o.value} onClick={() => set("situation", answers.situation === o.value ? undefined : o.value)}>
+                        {o.label}
+                        <span className={`block text-xs font-medium mt-0.5 ${answers.situation === o.value ? "text-white/80" : "text-gray-500"}`}>{o.desc}</span>
+                      </Chip>
+                    ))}
+                  </div>
+                </Section>
                 <Section title="영어를 배우는 목적은요?">
                   <div className="grid grid-cols-2 gap-2">
                     {Q.purpose.options.map((o) => (

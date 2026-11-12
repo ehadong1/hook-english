@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MessageCircle, Sparkles, Send, Lightbulb, Check, RotateCcw, Loader2, Mic, Square } from "lucide-react";
 import { SpeakButton } from "../components/common";
-import { createRecognizer, isSTTSupported } from "../lib/speech";
+import { createRecognizer, isSTTSupported, speak, stopSpeaking } from "../lib/speech";
 import { getRoleplayScene } from "../lib/personalization";
 import { callLlmRoleplay, type RoleplayMessage, type RoleplayResult } from "../lib/llmProvider";
 import { describeLlmFailure } from "../lib/translate";
@@ -78,6 +78,18 @@ export function RoleplayTab({ savedSentences, profile }: { savedSentences: Saved
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [turns, loading]);
 
+  // 상대(AI)의 말은 화면에 보여주기만 하지 않고 소리 내어 읽어 줍니다. (끄기 가능)
+  const [autoVoice, setAutoVoice] = useState(true);
+  const spokenRef = useRef(0);
+  useEffect(() => {
+    if (turns.length === 0) { spokenRef.current = 0; return; }
+    if (turns.length <= spokenRef.current) return;
+    spokenRef.current = turns.length;
+    const last = turns[turns.length - 1];
+    if (autoVoice && last.from === "partner") speak(last.text);
+  }, [turns, autoVoice]);
+  useEffect(() => () => { stopSpeaking(); }, []);
+
   if (!enabled) {
     return (
       <div className="px-4 pb-6">
@@ -153,7 +165,7 @@ export function RoleplayTab({ savedSentences, profile }: { savedSentences: Saved
   return (
     <div className="px-4 pb-6">
       <div className="bg-brand-50 rounded-xl p-3 mt-3">
-        <p className="text-xs font-bold text-brand-500 mb-1">상황 설정 · {String(profile?.situation ?? "")}</p>
+        <p className="text-xs font-bold text-brand-500 mb-1">오늘의 상황{profile?.situation ? ` · ${String(profile.situation)}` : ""}</p>
         <p className="text-sm text-brand-800 leading-relaxed">{scene}</p>
       </div>
 
@@ -169,6 +181,7 @@ export function RoleplayTab({ savedSentences, profile }: { savedSentences: Saved
                 <span className="flex-1">
                   {done || !started || (current && showHint) ? t : current ? "지금 이 상황에 어울리는 내 문장이에요" : "다음 차례"}
                 </span>
+                {(done || !started || (current && showHint)) && <SpeakButton text={t} size={14} />}
                 {current && !showHint && (
                   <button type="button" onClick={() => setShowHint(true)} className="shrink-0 text-xs font-semibold text-amber-800 flex items-center gap-1">
                     <Lightbulb size={12} /> 힌트
@@ -188,7 +201,10 @@ export function RoleplayTab({ savedSentences, profile }: { savedSentences: Saved
         </button>
       ) : (
         <>
-          <div className="mt-3 space-y-2.5 max-h-[360px] overflow-y-auto pr-1" aria-live="polite">
+          <button type="button" aria-pressed={autoVoice} onClick={() => { if (autoVoice) stopSpeaking(); setAutoVoice((v) => !v); }} className="mt-3 text-xs font-semibold text-brand-700 underline underline-offset-2">
+            {autoVoice ? "상대 말 자동 음성: 켜짐 (누르면 끄기)" : "상대 말 자동 음성: 꺼짐 (누르면 켜기)"}
+          </button>
+          <div className="mt-2 space-y-2.5 max-h-[360px] overflow-y-auto pr-1" aria-live="polite">
             {turns.map((t, i) => (
               <div key={i}>
                 <div className={`flex ${t.from === "user" ? "justify-end" : "justify-start"}`}>

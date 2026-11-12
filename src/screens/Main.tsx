@@ -296,7 +296,10 @@ export function SentenceList({ sentences, activeId, onSelect, badge, renderDetai
       {sentences.map((s) => (
         <div key={s.id}>
           <button onClick={() => onSelect(s)} aria-expanded={activeId === s.id} className={`w-full text-left p-3 rounded-xl border-2 ${activeId === s.id ? "border-brand-600 bg-brand-50" : "border-gray-100 bg-white"}`}>
-            {(s.badge || badge) && <span className="text-xs text-brand-500 font-bold">{s.badge || badge}</span>}
+            <span className="flex items-center gap-1.5 flex-wrap">
+              {(s.badge || badge) && <span className="text-xs text-brand-500 font-bold">{s.badge || badge}</span>}
+              {s.situations?.[0] && <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 rounded-full px-1.5 py-0.5">{s.situations[0]}</span>}
+            </span>
             <p className="text-sm font-semibold text-gray-900">{s.text}</p>
             <p className="text-xs text-gray-500 mt-0.5">{s.translation}</p>
           </button>
