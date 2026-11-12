@@ -434,19 +434,25 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
       </div>
       {startMode === "given" ? (
         <>
-          <div data-tour="start" className="mt-3">
-            <p className="text-sm font-extrabold text-brand-700">오늘의 추천 3문장 <span className="font-medium text-xs text-gray-500">· 여기서 하나를 눌러 시작하세요</span></p>
-            <p className="text-[11px] text-gray-500 mt-0.5">문장을 누르면 구조·해설이 열리고, 저장하면 복습 일정이 잡혀요</p>
+          <div className="mt-3 rounded-2xl border border-brand-200 bg-brand-50/60 p-3">
+            <div data-tour="start">
+              <p className="text-sm font-extrabold text-brand-700">오늘의 추천 3문장 <span className="font-medium text-xs text-gray-500">· 여기서 하나를 눌러 시작하세요</span></p>
+              <p className="text-[11px] text-gray-500 mt-0.5">문장을 누르면 구조·해설이 열리고, 저장하면 복습 일정이 잡혀요</p>
+            </div>
+            {listSection}
           </div>
-          {listSection}
-          <p className="mt-5 mb-1 px-1 text-xs font-semibold text-gray-600">다른 말이 배우고 싶다면 · 한글로 입력하세요</p>
-          <div data-tour="composer"><ComposerBox profile={profile} onStart={onStartCustom} minimal onSubmit={() => { setMenuMode(null); setActiveSentence(null); }} /></div>
+          <div data-tour="composer" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-3">
+            <p className="text-sm font-extrabold" style={{ color: "#8a6420" }}>영어로 표현하고 싶은 말을 입력하세요</p>
+            <p className="text-[11px] text-gray-500 mt-0.5 mb-2">한글로 적으면 영어 문장으로 바꿔 드려요</p>
+            <ComposerBox profile={profile} onStart={onStartCustom} minimal onSubmit={() => { setMenuMode(null); setActiveSentence(null); }} />
+          </div>
         </>
       ) : (
-        <>
-          <p className="mt-3 mb-1 px-1 text-sm font-extrabold text-brand-700">내가 하고 싶은 말 <span className="font-medium text-xs text-gray-500">· 한글로 적으면 영어 문장이 나와요</span></p>
+        <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-3">
+          <p className="text-sm font-extrabold" style={{ color: "#8a6420" }}>영어로 표현하고 싶은 말을 입력하세요</p>
+          <p className="text-[11px] text-gray-500 mt-0.5 mb-2">한글로 적으면 영어 문장으로 바꿔 드려요</p>
           <div data-tour="start"><ComposerBox profile={profile} onStart={onStartCustom} minimal onSubmit={() => { setMenuMode(null); setActiveSentence(null); }} /></div>
-        </>
+        </div>
       )}
       <RoutineGuide savedCount={savedSentences.length} onGo={onGoTab} onOpenNotes={onOpenNotes} />
       {menuOpen && (
