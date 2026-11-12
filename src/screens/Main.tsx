@@ -322,10 +322,10 @@ type MainTabProps = {
   savedSentences: StoreItem[];
   onGoTab: (tab: TabKey) => void;
   onOpenNotes: () => void;
-  onOpenSettings: () => void;
+  onOpenSettings?: () => void;
 };
 
-export function MainTab({ profile, activeSentence, setActiveSentence, history, onSaveWord, onSaveSentence, savedIds, onStartCustom, savedSentences, onGoTab, onOpenNotes, onOpenSettings }: MainTabProps) {
+export function MainTab({ profile, activeSentence, setActiveSentence, history, onSaveWord, onSaveSentence, savedIds, onStartCustom, savedSentences, onGoTab, onOpenNotes }: MainTabProps) {
   const menuOpen = true; // 학습 메뉴는 접지 않고 항상 보여줍니다.
   // 설문에서 "주어진 문장부터"를 고른 사람은 고른 종류의 문장을 첫 화면 맨 위에 바로 보여줍니다.
   const startMode = profile.startMode === "given" ? "given" : "own";
@@ -428,9 +428,6 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
       <div className="pt-5 pb-4 text-center rounded-2xl bg-gradient-to-b from-[#f4f7fb] via-white to-white border border-[#e4ebf3] mb-1">
         <HookWordmark size="hero" />
         <p className="fly-in mt-3 text-base font-bold text-brand-700">나에게 맞춘 하루 3문장 비즈니스 영어</p>
-        <button type="button" onClick={onOpenSettings} className="mt-2 text-[11px] font-semibold text-gray-500 underline underline-offset-2">
-          지금 첫 화면: {startMode === "given" ? "추천 문장부터" : "내 말부터"} · 바꾸기
-        </button>
       </div>
       {startMode === "given" ? (
         <>
