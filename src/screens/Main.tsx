@@ -436,7 +436,7 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
         <>
           <div className="mt-3 rounded-2xl border border-brand-200 bg-brand-50/60 p-3">
             <div data-tour="start">
-              <p className="text-sm font-extrabold text-brand-700">오늘의 추천 3문장 <span className="font-medium text-xs text-gray-500">· 여기서 하나를 눌러 시작하세요</span></p>
+              <p className="text-sm font-extrabold text-brand-700">오늘의 추천 3문장</p>
               <p className="text-[11px] text-gray-500 mt-0.5">문장을 누르면 구조·해설이 열리고, 저장하면 복습 일정이 잡혀요</p>
             </div>
             {listSection}
