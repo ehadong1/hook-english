@@ -10,7 +10,7 @@ function stopsFor(mode: "own" | "given"): Stop[] {
     mode === "given"
       ? { target: "start", title: "1단계 · 여기서 시작해요", body: "오늘의 추천 문장 하나를 눌러 보세요. 구조와 해설이 바로 열려요." }
       : { target: "start", title: "1단계 · 여기서 시작해요", body: "하고 싶은 말을 한글로 적고 버튼을 누르면 영어 문장이 나와요." },
-    { target: "menus", title: "다른 문장도 고를 수 있어요", body: "추천·뉴스·발표 문장을 누르면 3문장씩 보여줘요." },
+    { target: "menus", title: "다른 문장도 고를 수 있어요", body: "추천·뉴스 문장을 누르면 3문장씩 보여줘요." },
     { target: "tabs", title: "아래 탭으로 단계가 이어져요", body: "문장·해설(1) → 듣기(2) → 말하기(3) → 실전대화(4) → 복습(5) 순서예요." },
   ];
 }
@@ -90,7 +90,7 @@ export function Tutorial({ startMode }: { startMode: "own" | "given" }) {
         </div>
         <p className="text-base font-extrabold text-gray-900 mt-2">{stop.title}</p>
         <p className="text-sm text-gray-600 mt-1 leading-relaxed">{stop.body}</p>
-        <p className="text-[11px] text-gray-400 mt-1">지금은 눌러지지 않아요. 아래 '다음'을 눌러 주세요.</p>
+        <p className="text-[11px] text-gray-400 mt-1">지금은 눌러지지 않아요. 아래 '{last ? "시작하기" : "다음"}'를 눌러 주세요.</p>
         <div className="flex items-center justify-between mt-3">
           <button type="button" onClick={close} className="text-xs font-semibold text-gray-500 px-2 py-2">건너뛰기</button>
           <button type="button" onClick={next} className="px-5 py-2.5 rounded-xl bg-brand-600 text-white text-sm font-bold">{last ? "시작하기" : "다음"}</button>
