@@ -29,8 +29,8 @@ import { TrainingTab } from "./screens/Training";
 
 // step: 5단계 활용법과 연결되는 번호
 const TABS: { key: TabKey; label: string; step: string; icon: typeof BookOpen }[] = [
-  { key: "main", label: "문장·해설", step: "1·2단계", icon: BookOpen },
-  { key: "training", label: "듣기", step: "3단계", icon: Volume2 },
+  { key: "main", label: "문장·해설", step: "1단계", icon: BookOpen },
+  { key: "training", label: "듣기", step: "2단계", icon: Volume2 },
   { key: "scoring", label: "말하기", step: "3단계", icon: Mic },
   { key: "roleplay", label: "실전대화", step: "4단계", icon: MessageCircle },
   { key: "review", label: "복습", step: "5단계", icon: Clock },
@@ -235,6 +235,15 @@ export default function App() {
     return (
       <div className="max-w-[400px] mx-auto min-h-screen bg-white flex items-center justify-center text-gray-400 text-sm gap-2">
         <Loader2 size={16} className="animate-spin" /> 저장된 학습 기록 불러오는 중...
+      </div>
+    );
+  }
+
+  // 설문 화면 미리보기(저장하지 않음): 주소 끝에 #/survey-preview
+  if (typeof window !== "undefined" && window.location.hash === "#/survey-preview") {
+    return (
+      <div className="max-w-[400px] mx-auto min-h-screen bg-white shadow-xl">
+        <Onboarding onComplete={() => { window.location.hash = ""; window.location.reload(); }} />
       </div>
     );
   }

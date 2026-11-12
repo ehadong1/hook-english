@@ -11,7 +11,7 @@ function stopsFor(mode: "own" | "given"): Stop[] {
       ? { target: "start", title: "1단계 · 여기서 시작해요", body: "오늘의 추천 문장 하나를 눌러 보세요. 구조와 해설이 바로 열려요." }
       : { target: "start", title: "1단계 · 여기서 시작해요", body: "하고 싶은 말을 한글로 적고 버튼을 누르면 영어 문장이 나와요." },
     { target: "menus", title: "다른 문장도 고를 수 있어요", body: "추천·뉴스·발표 문장을 누르면 3문장씩 보여줘요." },
-    { target: "tabs", title: "아래 탭으로 단계가 이어져요", body: "해설 → 듣기·말하기 → 실전대화 → 복습 순서로 눌러 보세요." },
+    { target: "tabs", title: "아래 탭으로 단계가 이어져요", body: "문장·해설(1) → 듣기(2) → 말하기(3) → 실전대화(4) → 복습(5) 순서예요." },
   ];
 }
 
@@ -53,7 +53,14 @@ export function Tutorial({ startMode }: { startMode: "own" | "given" }) {
 
   const pad = 6;
   const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-  const below = rect ? rect.top + rect.height / 2 < vh / 2 : true;
+  const CARD_H = 170; // 설명 카드 대략 높이
+  // 대상 바로 아래(공간 부족하면 바로 위)에 설명 카드를 붙입니다.
+  let cardTop = 24;
+  if (rect) {
+    const underTop = rect.bottom + pad + 14;
+    const aboveTop = rect.top - pad - 14 - CARD_H;
+    cardTop = underTop + CARD_H <= vh - 8 ? underTop : Math.max(8, aboveTop);
+  }
 
   return (
     <div className="fixed inset-0 z-[200]" role="dialog" aria-label="사용법 튜토리얼">
@@ -75,11 +82,15 @@ export function Tutorial({ startMode }: { startMode: "own" | "given" }) {
       {/* 설명 카드 */}
       <div
         className="absolute left-4 right-4 mx-auto max-w-md bg-white rounded-2xl p-4 shadow-xl"
-        style={below ? { bottom: 24 } : { top: 24 }}
+        style={{ top: cardTop }}
       >
-        <p className="text-[11px] font-bold text-gray-400">{idx + 1} / {stops.length}</p>
-        <p className="text-base font-extrabold text-gray-900 mt-0.5">{stop.title}</p>
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-extrabold text-white bg-brand-600 rounded-full px-2 py-0.5">튜토리얼 · 안내 화면이에요</span>
+          <span className="text-[11px] font-bold text-gray-400">{idx + 1} / {stops.length}</span>
+        </div>
+        <p className="text-base font-extrabold text-gray-900 mt-2">{stop.title}</p>
         <p className="text-sm text-gray-600 mt-1 leading-relaxed">{stop.body}</p>
+        <p className="text-[11px] text-gray-400 mt-1">지금은 눌러지지 않아요. 아래 '다음'을 눌러 주세요.</p>
         <div className="flex items-center justify-between mt-3">
           <button type="button" onClick={close} className="text-xs font-semibold text-gray-500 px-2 py-2">건너뛰기</button>
           <button type="button" onClick={next} className="px-5 py-2.5 rounded-xl bg-brand-600 text-white text-sm font-bold">{last ? "시작하기" : "다음"}</button>

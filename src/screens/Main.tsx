@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
-import { Mic, Check, X, Star, Sparkles, Languages, Loader2, Newspaper, PenLine, Notebook, Presentation } from "lucide-react";
+import { Mic, Check, X, Star, Sparkles, Languages, Loader2, Newspaper, PenLine, Notebook } from "lucide-react";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
-import { fetchLatestPhrases, fetchNewsSentences, fetchPhrasesBySituation, type PhraseBankEntry } from "../lib/persistence";
+import { fetchLatestPhrases, fetchNewsSentences, type PhraseBankEntry } from "../lib/persistence";
 import { SpeakButton } from "../components/common";
 import { TOPIC_TO_BANK } from "../data/survey";
-import { getNewsSentences, getRecommendedSentences, mixFreshPhrases, phraseToSentence, rankNewsForProfile } from "../lib/personalization";
+import { getNewsSentences, getRecommendedSentences, mixFreshPhrases, rankNewsForProfile } from "../lib/personalization";
 import { createRecognizer, isSTTSupported } from "../lib/speech";
 import type { HistoryItem, Profile, Sentence, StoreItem } from "../types";
 import { containsKorean, describeLlmFailure, translateKoreanToEnglish, writingFeedbackProvider } from "../lib/translate";
@@ -366,24 +366,6 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
     return () => { cancelled = true; };
   }, [profile, bankTopics]);
 
-  // 발표 표현: 표현 뱅크에서 "화상회의 및 발표" 상황으로 승인된 표현. 모자라면 추천 문장 중 발표 상황 문장으로 채웁니다.
-  const [presentationPool, setPresentationPool] = useState<PhraseBankEntry[]>([]);
-  useEffect(() => {
-    if (!isSupabaseConfigured) return;
-    let cancelled = false;
-    fetchPhrasesBySituation("화상회의 및 발표", 40).then((r) => { if (!cancelled) setPresentationPool(r); }).catch(() => { /* 비어 있으면 추천으로 대체 */ });
-    return () => { cancelled = true; };
-  }, []);
-  const presentationSentences = useMemo(() => {
-    const day = Math.floor(Date.now() / 86400000);
-    const pool = presentationPool.filter((p) => !savedIds.has(`pb-${p.id}`) && p.english.length <= 110);
-    const start = pool.length ? (day * 3) % pool.length : 0;
-    const rotated = [...pool.slice(start), ...pool.slice(0, start)].slice(0, 3).map(phraseToSentence);
-    if (rotated.length >= 3) return rotated;
-    const fillers = baseRecommended.filter((x) => (x.situations || []).includes("화상회의 및 발표") && !rotated.some((r) => r.id === x.id));
-    const rest = baseRecommended.filter((x) => !fillers.includes(x) && !rotated.some((r) => r.id === x.id));
-    return [...rotated, ...fillers, ...rest].slice(0, 3);
-  }, [presentationPool, baseRecommended, savedIds]);
 
   const weaknesses = profile.weaknesses || [profile.weakness].filter(Boolean);
   const autoOpen = weaknesses.includes("문법") || weaknesses.includes("문장 구성");
@@ -399,7 +381,7 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
   }, [activeId]);
 
   const listed = menuOpen
-    ? menuMode === "recommended" ? recommended : menuMode === "news" ? newsSentences : menuMode === "presentation" ? presentationSentences : []
+    ? menuMode === "recommended" ? recommended : menuMode === "news" ? newsSentences : []
     : [];
   const inlineShown = !!activeSentence && listed.some((s) => s.id === activeSentence.id);
 
@@ -434,7 +416,6 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
     <>
       {menuMode === "recommended" && <div className="mt-4"><p className="text-xs font-bold text-gray-500 mb-2">내 설문(수준·업무 분야·말투)에 맞춘 추천 {recommended.length}문장</p><SentenceList sentences={recommended} activeId={activeSentence?.id} onSelect={setActiveSentence} renderDetail={activeCard} /></div>}
       {menuMode === "news" && <div className="mt-4"><p className="text-xs font-bold text-gray-500 mb-2">내가 고른 업무 분야의 최신 뉴스 기반 {newsSentences.length}문장</p><SentenceList sentences={newsSentences} activeId={activeSentence?.id} onSelect={setActiveSentence} badge="NEWS" renderDetail={activeCard} /></div>}
-      {menuMode === "presentation" && <div className="mt-4"><p className="text-xs font-bold text-gray-500 mb-2">발표에서 쓰는 표현 {presentationSentences.length}문장</p><SentenceList sentences={presentationSentences} activeId={activeSentence?.id} onSelect={setActiveSentence} renderDetail={activeCard} /></div>}
     </>
   );
 
@@ -465,10 +446,9 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
         <>
           <div data-tour="menus" className="mt-3">
             <p className="text-sm font-extrabold text-brand-700">학습하기 <span className="font-medium text-xs text-gray-500">· 좋은 문장을 골라 이해해요</span></p>
-            <div className="grid grid-cols-3 gap-2 mt-1.5">
+            <div className="grid grid-cols-2 gap-2 mt-1.5">
               <button onClick={() => openMenu("recommended")} className="p-3 rounded-2xl bg-brand-50 border border-brand-100 text-left"><Sparkles size={16} className="text-brand-600 mb-1" /><p className="text-xs font-bold text-brand-800">오늘의 추천 3문장</p><p className="text-[11px] text-gray-500 mt-0.5">누르면 내 수준 문장 3개</p></button>
               <button onClick={() => openMenu("news")} className="p-3 rounded-2xl bg-rose-50 border border-rose-100 text-left"><Newspaper size={16} className="text-rose-600 mb-1" /><p className="text-xs font-bold text-rose-800">최신 뉴스 3문장</p><p className="text-[11px] text-gray-500 mt-0.5">누르면 최신 기사 문장 3개</p></button>
-              <button onClick={() => openMenu("presentation")} className="p-3 rounded-2xl bg-violet-50 border border-violet-100 text-left"><Presentation size={16} className="text-violet-600 mb-1" /><p className="text-xs font-bold text-violet-800">발표 표현</p><p className="text-[11px] text-gray-500 mt-0.5">누르면 발표 문장 3개</p></button>
             </div>
           </div>
           <div className="mt-3">
