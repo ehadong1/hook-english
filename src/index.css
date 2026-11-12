@@ -178,7 +178,14 @@ body {
   animation: fly-in 0.9s cubic-bezier(0.2, 0.8, 0.25, 1) 0.35s both;
 }
 
+@keyframes tour-tap {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-6px, -8px) scale(0.88); }
+}
+.tour-hand { animation: tour-tap 1.1s ease-in-out infinite; }
+
 @media (prefers-reduced-motion: reduce) {
+  .tour-hand,
   .fly-in,
   .fly-in-delay,
   .finger-hint,

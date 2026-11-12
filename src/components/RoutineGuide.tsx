@@ -5,18 +5,16 @@ export type TabKey = "main" | "training" | "scoring" | "review" | "roleplay";
 
 type Step = { title: string; desc: string };
 
-// Hook English의 반복 학습 루틴. 1~4: 학습(새 문장 익히기), 5~7: 반복(나만의 훅 만들기)
+// Hook English 5단계 루틴. 1~3: 학습(새 문장 익히기), 4~5: 반복(나만의 훅 만들기)
 const STEPS: Step[] = [
-  { title: "영어로 표현하고 싶은 문장을 확인해요", desc: "한글로 쓰거나 추천 문장을 골라요" },
-  { title: "원어민 표현·구조·문법을 이해해요", desc: "'구조 및 해설 보기'로 왜 이렇게 쓰는지 확인해요" },
-  { title: "여러 번 읽고 따라 해요", desc: "듣고, 따라 말하고, 내 목소리와 비교해요" },
-  { title: "일기나 문장 만들기로 써봐요", desc: "배운 문장을 내 상황에 넣어서 직접 써요" },
-  { title: "실전 대화로 익혀요", desc: "저장한 문장을 대화 속에서 직접 말해요" },
-  { title: "실전 대화에서 다시 활용해요", desc: "누적한 문장으로 더 길게 말해요" },
-  { title: "시간이 지난 뒤 나만의 영어노트에서 복습해요", desc: "잊을 때쯤 복습 탭이 알려줘요" },
+  { title: "영어로 하고 싶은 문장을 정해요", desc: "한글로 입력하거나 추천 문장을 눌러요" },
+  { title: "'구조 및 해설 보기'로 이해해요", desc: "원어민 표현·문법을 보고 영어노트에 저장해요" },
+  { title: "듣고, 따라 말해요", desc: "듣기·말하기 탭에서 여러 번 반복해요" },
+  { title: "실전 대화에서 써봐요", desc: "저장한 문장을 대화 속에서 직접 말해요" },
+  { title: "영어노트에서 복습해요", desc: "잊을 때쯤 복습 탭이 알려줘요" },
 ];
 const N = STEPS.length;
-const LEARN = 4; // 앞의 4단계는 '학습', 나머지는 '반복'
+const LEARN = 3; // 앞의 3단계는 '학습', 나머지는 '반복'
 
 const GOAL = 1000;
 const LEARN_COLOR = "#1a3556"; // 남색
@@ -30,7 +28,7 @@ const colorOf = (i: number) => (i < LEARN ? LEARN_COLOR : REPEAT_COLOR);
 const tagOf = (i: number) => (i < LEARN ? `학습 ${i + 1}/${LEARN}` : `반복 ${i - LEARN + 1}/${N - LEARN}`);
 
 export function RoutineGuide({ savedCount, onOpenNotes }: { savedCount: number; onOpenNotes: () => void; onGo?: (tab: TabKey) => void }) {
-  // 첫 화면에 학습 메뉴 4개가 모두 보이도록 기본은 접어 둡니다. (원하면 "7단계 활용법 보기"로 펼쳐요)
+  // 첫 화면에 학습 메뉴 4개가 모두 보이도록 기본은 접어 둡니다. (원하면 "5단계 활용법 보기"로 펼쳐요)
   const [open, setOpen] = useState(false);
   const toggle = () => {
     setOpen((o) => {
@@ -45,7 +43,7 @@ export function RoutineGuide({ savedCount, onOpenNotes }: { savedCount: number; 
   const busy = useRef(false);
   const reduceMotion = typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
-  // 자동 재생은 한 바퀴(7장)만 돌고 멈춥니다. 움직임 줄이기 설정이면 처음부터 멈춰 있어요.
+  // 자동 재생은 한 바퀴(5장)만 돌고 멈춥니다. 움직임 줄이기 설정이면 처음부터 멈춰 있어요.
   const [playing, setPlaying] = useState(!reduceMotion);
   const [finished, setFinished] = useState(false);
   const autoTicks = useRef(0);
@@ -109,9 +107,11 @@ export function RoutineGuide({ savedCount, onOpenNotes }: { savedCount: number; 
         </span>
       </button>
       <button type="button" onClick={toggle} aria-expanded={open} className="mt-2 w-full flex items-center justify-center gap-1 text-xs font-semibold text-brand-700">
-        {open ? "활용법 접기" : "7단계 활용법 보기"}
+        {open ? "활용법 접기" : "5단계 활용법 보기"}
         {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
       </button>
+
+      <button type="button" onClick={() => window.dispatchEvent(new Event("hook-tour"))} className="mt-1 w-full text-center text-xs font-semibold text-gray-500 underline underline-offset-2">사용법 튜토리얼 다시 보기</button>
 
       {open && (
         <div className="mt-3">
@@ -122,7 +122,7 @@ export function RoutineGuide({ savedCount, onOpenNotes }: { savedCount: number; 
             ))}
           </ol>
 
-          {/* 카드 줄: 맨 앞 카드가 지금 단계, 뒤로 2~7번이 차례로 줄서 있어요 */}
+          {/* 카드 줄: 맨 앞 카드가 지금 단계, 뒤로 2~5번이 차례로 줄서 있어요 */}
           <div
             role="button"
             tabIndex={0}
@@ -172,7 +172,7 @@ export function RoutineGuide({ savedCount, onOpenNotes }: { savedCount: number; 
             {finished ? "카드를 누르면 처음부터 다시 보여줘요" : playing ? "카드를 누르면 멈춰요" : "카드를 누르면 다시 움직여요"}
           </p>
 
-          {/* 학습 4칸 + 반복 3칸을 한 줄로 */}
+          {/* 학습 3칸 + 반복 2칸을 한 줄로 */}
           <div className="mt-3 flex gap-1" aria-hidden="true">
             {STEPS.map((_, i) => (
               <span

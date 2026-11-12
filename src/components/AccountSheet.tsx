@@ -18,15 +18,13 @@ type Props = {
   auth: AuthInfo | null;
   linkConflict: boolean;
   onClose: () => void;
-  startChoice: string; // "own" | "common" | "news" | "presentation"
+  startChoice: string; // "own" | "given"
   onChangeStart: (choice: string) => void;
 };
 
 const START_CHOICES = [
   { value: "own", label: "내 말부터" },
-  { value: "common", label: "업무 표현" },
-  { value: "news", label: "최신 뉴스" },
-  { value: "presentation", label: "발표 표현" },
+  { value: "given", label: "추천 문장부터" },
 ];
 
 /** 첫 화면을 어떻게 시작할지 바꿉니다. */

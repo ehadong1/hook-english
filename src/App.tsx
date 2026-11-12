@@ -17,6 +17,7 @@ import { normalizeProfile } from "./lib/personalization";
 import { loadVoices } from "./lib/speech";
 import { MainTab } from "./screens/Main";
 import { Onboarding } from "./screens/Onboarding";
+import { Tutorial } from "./components/Tutorial";
 import { ReviewTab } from "./screens/Review";
 import { RoleplayTab } from "./screens/Roleplay";
 import { ScoringTab } from "./screens/Scoring";
@@ -26,13 +27,13 @@ import { TrainingTab } from "./screens/Training";
    SECTION 16. App (최상위 상태 관리)
    ============================================================================ */
 
-// step: 7단계 활용법과 연결되는 번호
+// step: 5단계 활용법과 연결되는 번호
 const TABS: { key: TabKey; label: string; step: string; icon: typeof BookOpen }[] = [
   { key: "main", label: "문장·해설", step: "1·2단계", icon: BookOpen },
   { key: "training", label: "듣기", step: "3단계", icon: Volume2 },
   { key: "scoring", label: "말하기", step: "3단계", icon: Mic },
-  { key: "roleplay", label: "실전대화", step: "5·6단계", icon: MessageCircle },
-  { key: "review", label: "복습", step: "7단계", icon: Clock },
+  { key: "roleplay", label: "실전대화", step: "4단계", icon: MessageCircle },
+  { key: "review", label: "복습", step: "5단계", icon: Clock },
 ];
 
 const TAB_KEYS: TabKey[] = ["main", "training", "scoring", "review", "roleplay"];
@@ -246,9 +247,9 @@ export default function App() {
     );
   }
 
-  // 시작 화면 바꾸기 (내 계정 화면): "own" 또는 주어진 문장 종류(common/news/presentation)
+  // 시작 화면 바꾸기 (내 계정 화면): "own"(내 말부터) 또는 "given"(추천 문장부터)
   const changeStart = (choice: string) => {
-    const next = normalizeProfile({ ...profile, startMode: choice === "own" ? "own" : "given", givenSource: choice === "own" ? undefined : choice });
+    const next = normalizeProfile({ ...profile, startMode: choice === "own" ? "own" : "given" });
     setProfile(next);
     saveProfileRemote(deviceId, next);
   };
@@ -304,7 +305,7 @@ export default function App() {
         {tab === "roleplay" && <RoleplayTab savedSentences={savedSentences} profile={profile} />}
       </div>
 
-      <div className="border-t border-gray-100 bg-white flex justify-around py-2 sticky bottom-0">
+      <div data-tour="tabs" className="border-t border-gray-100 bg-white flex justify-around py-2 sticky bottom-0">
         {TABS.map((t) => {
           const Icon = t.icon;
           const active = tab === t.key;
@@ -331,7 +332,8 @@ export default function App() {
           onSelectSentence={handleReviewFromNotebook}
         />
       )}
-      {modal === "account" && <AccountSheet auth={auth} linkConflict={linkConflict} onClose={() => { setModal(null); setLinkConflict(false); }} startChoice={profile.startMode === "given" ? (profile.givenSource || "common") : "own"} onChangeStart={changeStart} />}
+      {<Tutorial startMode={profile.startMode === "given" ? "given" : "own"} />}
+      {modal === "account" && <AccountSheet auth={auth} linkConflict={linkConflict} onClose={() => { setModal(null); setLinkConflict(false); }} startChoice={profile.startMode === "given" ? "given" : "own"} onChangeStart={changeStart} />}
       {modal === "voice" && <VoiceSettings voices={voices} selected={voice} onSelect={setVoice} onClose={() => setModal(null)} />}
 
       <Toast message={toast} />

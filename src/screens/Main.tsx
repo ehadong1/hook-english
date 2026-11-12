@@ -325,8 +325,7 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
   const menuOpen = true; // 학습 메뉴는 접지 않고 항상 보여줍니다.
   // 설문에서 "주어진 문장부터"를 고른 사람은 고른 종류의 문장을 첫 화면 맨 위에 바로 보여줍니다.
   const startMode = profile.startMode === "given" ? "given" : "own";
-  const SOURCE_TO_MODE: Record<string, string> = { common: "recommended", news: "news", presentation: "presentation" };
-  const initialMode = startMode === "given" ? (SOURCE_TO_MODE[profile.givenSource] || "recommended") : null;
+  const initialMode = startMode === "given" ? "recommended" : null;
   const [menuMode, setMenuMode] = useState<string | null>(initialMode);
   useEffect(() => { setMenuMode(initialMode); }, [initialMode]);
   const baseRecommended = useMemo(() => getRecommendedSentences(profile), [profile]);
@@ -445,25 +444,38 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
         <HookWordmark size="hero" />
         <p className="fly-in mt-3 text-base font-bold text-brand-700">나에게 맞춘 하루 3문장 비즈니스 영어</p>
       </div>
-      {startMode === "given" && listSection}
-      <p className="mt-2 mb-1 px-1 text-xs font-semibold text-brand-700">필요한 말부터, 입에 붙을 때까지 <span className="font-medium text-gray-500">· 번역 뒤 복습 일정까지 챙겨요</span></p>
-      <ComposerBox profile={profile} onStart={onStartCustom} minimal onSubmit={() => { setMenuMode(null); setActiveSentence(null); }} />
+      {startMode === "given" ? (
+        <>
+          <div data-tour="start" className="mt-3">
+            <p className="text-sm font-extrabold text-brand-700">오늘의 추천 3문장 <span className="font-medium text-xs text-gray-500">· 여기서 하나를 눌러 시작하세요</span></p>
+            <p className="text-[11px] text-gray-500 mt-0.5">문장을 누르면 구조·해설이 열리고, 저장하면 복습 일정이 잡혀요</p>
+          </div>
+          {listSection}
+          <p className="mt-5 mb-1 px-1 text-xs font-semibold text-gray-600">다른 말이 배우고 싶다면 · 한글로 입력하세요</p>
+          <div data-tour="composer"><ComposerBox profile={profile} onStart={onStartCustom} minimal onSubmit={() => { setMenuMode(null); setActiveSentence(null); }} /></div>
+        </>
+      ) : (
+        <>
+          <p className="mt-3 mb-1 px-1 text-sm font-extrabold text-brand-700">내가 하고 싶은 말 <span className="font-medium text-xs text-gray-500">· 한글로 적으면 영어 문장이 나와요</span></p>
+          <div data-tour="start"><ComposerBox profile={profile} onStart={onStartCustom} minimal onSubmit={() => { setMenuMode(null); setActiveSentence(null); }} /></div>
+        </>
+      )}
       <RoutineGuide savedCount={savedSentences.length} onGo={onGoTab} onOpenNotes={onOpenNotes} />
       {menuOpen && (
         <>
-          <div className="mt-3">
+          <div data-tour="menus" className="mt-3">
             <p className="text-sm font-extrabold text-brand-700">학습하기 <span className="font-medium text-xs text-gray-500">· 좋은 문장을 골라 이해해요</span></p>
             <div className="grid grid-cols-3 gap-2 mt-1.5">
-              <button onClick={() => openMenu("recommended")} className="p-3 rounded-2xl bg-brand-50 border border-brand-100 text-left"><Sparkles size={16} className="text-brand-600 mb-1" /><p className="text-xs font-bold text-brand-800">오늘의 추천 3문장</p><p className="text-[11px] text-gray-500 mt-0.5">내 수준·분야에 맞춰요</p></button>
-              <button onClick={() => openMenu("news")} className="p-3 rounded-2xl bg-rose-50 border border-rose-100 text-left"><Newspaper size={16} className="text-rose-600 mb-1" /><p className="text-xs font-bold text-rose-800">최신 뉴스 3문장</p><p className="text-[11px] text-gray-500 mt-0.5">요즘 실제 기사 표현</p></button>
-              <button onClick={() => openMenu("presentation")} className="p-3 rounded-2xl bg-violet-50 border border-violet-100 text-left"><Presentation size={16} className="text-violet-600 mb-1" /><p className="text-xs font-bold text-violet-800">발표 표현</p><p className="text-[11px] text-gray-500 mt-0.5">오프닝·질의응답</p></button>
+              <button onClick={() => openMenu("recommended")} className="p-3 rounded-2xl bg-brand-50 border border-brand-100 text-left"><Sparkles size={16} className="text-brand-600 mb-1" /><p className="text-xs font-bold text-brand-800">오늘의 추천 3문장</p><p className="text-[11px] text-gray-500 mt-0.5">누르면 내 수준 문장 3개</p></button>
+              <button onClick={() => openMenu("news")} className="p-3 rounded-2xl bg-rose-50 border border-rose-100 text-left"><Newspaper size={16} className="text-rose-600 mb-1" /><p className="text-xs font-bold text-rose-800">최신 뉴스 3문장</p><p className="text-[11px] text-gray-500 mt-0.5">누르면 최신 기사 문장 3개</p></button>
+              <button onClick={() => openMenu("presentation")} className="p-3 rounded-2xl bg-violet-50 border border-violet-100 text-left"><Presentation size={16} className="text-violet-600 mb-1" /><p className="text-xs font-bold text-violet-800">발표 표현</p><p className="text-[11px] text-gray-500 mt-0.5">누르면 발표 문장 3개</p></button>
             </div>
           </div>
           <div className="mt-3">
             <p className="text-sm font-extrabold" style={{ color: "#8a6420" }}>연습하기 <span className="font-medium text-xs text-gray-500">· 내 말로 직접 써봐요</span></p>
             <div className="grid grid-cols-2 gap-2 mt-1.5">
-              <button onClick={() => openMenu("diary")} className="p-3 rounded-2xl bg-amber-50 border border-amber-100 text-left"><PenLine size={16} className="text-amber-600 mb-1" /><p className="text-xs font-bold text-amber-800">오늘의 일기 쓰기</p><p className="text-[11px] text-gray-500 mt-0.5">하루를 영어로 쓰고 첨삭</p></button>
-              <button onClick={() => openMenu("compose")} className="p-3 rounded-2xl bg-emerald-50 border border-emerald-100 text-left"><Notebook size={16} className="text-emerald-600 mb-1" /><p className="text-xs font-bold text-emerald-800">문장 만들어 보기</p><p className="text-[11px] text-gray-500 mt-0.5">배운 표현으로 새 문장</p></button>
+              <button onClick={() => openMenu("diary")} className="p-3 rounded-2xl bg-amber-50 border border-amber-100 text-left"><PenLine size={16} className="text-amber-600 mb-1" /><p className="text-xs font-bold text-amber-800">오늘의 일기 쓰기</p><p className="text-[11px] text-gray-500 mt-0.5">누르면 일기 입력창이 열려요</p></button>
+              <button onClick={() => openMenu("compose")} className="p-3 rounded-2xl bg-emerald-50 border border-emerald-100 text-left"><Notebook size={16} className="text-emerald-600 mb-1" /><p className="text-xs font-bold text-emerald-800">문장 만들어 보기</p><p className="text-[11px] text-gray-500 mt-0.5">누르면 문장 만들기가 열려요</p></button>
             </div>
           </div>
           {startMode !== "given" && listSection}

@@ -6,7 +6,7 @@ import type { Profile } from "../types";
 
 /* ============================================================================
    SECTION 8. 온보딩 (3페이지, 한 화면에 한 가지 결정)
-   - 1페이지: 시작 방식(내 말부터 / 주어진 문장부터) + 문장 종류(업무 표현·뉴스·발표)
+   - 1페이지: 시작 방식 2가지(내 말부터 / 추천 문장부터)
    - 2페이지: 주로 쓰는 상황(필수) + 업무 영역(선택)
    - 3페이지: 영어 수준(슬라이더) + 말투, 그리고 접어 둔 "더 맞추기"(목적·어려운 점·학습 시간, 선택)
    답변 모양은 예전과 같아서(profile) 나머지 앱 로직은 그대로 동작합니다.
@@ -97,14 +97,8 @@ function LevelSlider({ value, onChange }: { value?: string; onChange: (v: string
 }
 
 const START_OPTIONS = [
-  { value: "own", label: "내가 하고 싶은 말부터", desc: "오늘 쓸 말을 한글로 적으면, 그 문장으로 배워요" },
-  { value: "given", label: "주어진 문장부터", desc: "내 상황에 맞는 문장을 골라서 보여줘요" },
-] as const;
-
-const SOURCE_OPTIONS = [
-  { value: "common", label: "자주 쓰는 업무 표현", desc: "내 수준·분야에 맞는 대표 표현" },
-  { value: "news", label: "최신 뉴스 속 표현", desc: "요즘 실제 기사에서 쓰이는 표현" },
-  { value: "presentation", label: "발표(프레젠테이션) 표현", desc: "오프닝, 구조 안내, 질의응답" },
+  { value: "own", label: "내가 하고 싶은 말부터", desc: "첫 화면에 입력창이 크게 보여요. 오늘 쓸 말을 한글로 적으면 그 문장으로 배워요." },
+  { value: "given", label: "추천 문장부터", desc: "첫 화면에 오늘의 추천 3문장이 바로 보여요. 하나를 눌러 시작하면 돼요." },
 ] as const;
 
 function BigChoice({ selected, onClick, label, desc }: { selected: boolean; onClick: () => void; label: string; desc: string }) {
@@ -141,7 +135,7 @@ export function Onboarding({ onComplete }: { onComplete: (profile: Profile) => v
 
   // 필수는 "시작 방식(+문장 종류) · 주로 쓰는 상황 · 영어 수준" 뿐이에요. 나머지는 고르지 않아도 됩니다.
   const pageOk = [
-    !!answers.startMode && (answers.startMode === "own" || !!answers.givenSource),
+    !!answers.startMode,
     !!answers.situation,
     !!answers.level,
   ];
@@ -167,15 +161,6 @@ export function Onboarding({ onComplete }: { onComplete: (profile: Profile) => v
                 <BigChoice key={o.value} selected={answers.startMode === o.value} label={o.label} desc={o.desc} onClick={() => set("startMode", o.value)} />
               ))}
             </div>
-            {answers.startMode === "given" && (
-              <Section title="어떤 문장으로 배울까요?">
-                <div className="space-y-2.5">
-                  {SOURCE_OPTIONS.map((o) => (
-                    <BigChoice key={o.value} selected={answers.givenSource === o.value} label={o.label} desc={o.desc} onClick={() => set("givenSource", o.value)} />
-                  ))}
-                </div>
-              </Section>
-            )}
           </>
         )}
 
