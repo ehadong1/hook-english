@@ -31,8 +31,8 @@ const START_CHOICES = [
 function StartSection({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div className="mt-5 rounded-xl border border-gray-100 px-3.5 py-3">
-      <p className="text-sm font-bold text-gray-900">시작 화면</p>
-      <p className="text-xs text-gray-500 mt-0.5">앱을 열었을 때 먼저 보여줄 것을 골라요.</p>
+      <p className="text-sm font-bold text-gray-900">첫 화면 설정</p>
+      <p className="text-xs text-gray-500 mt-0.5">언제든 바꿀 수 있어요. 내 말부터는 입력창이, 추천 문장부터는 오늘의 3문장이 맨 위에 나와요.</p>
       <div className="grid grid-cols-2 gap-2 mt-2.5">
         {START_CHOICES.map((c) => (
           <button
@@ -153,7 +153,7 @@ export function AccountSheet({ auth, linkConflict, onClose, startChoice, onChang
 
   if (!isSupabaseConfigured) {
     return (
-      <BottomSheet title="내 계정" onClose={onClose}>
+      <BottomSheet title="내 설정" onClose={onClose}>
         <p className="text-sm text-gray-600">서버에 연결되어 있지 않아 지금은 로그인을 쓸 수 없어요.</p>
       </BottomSheet>
     );
@@ -161,7 +161,7 @@ export function AccountSheet({ auth, linkConflict, onClose, startChoice, onChang
 
   if (loggedIn) {
     return (
-      <BottomSheet title="내 계정" onClose={onClose}>
+      <BottomSheet title="내 설정" onClose={onClose}>
         <div className="bg-brand-50 rounded-xl p-3.5 mb-4 flex items-center gap-2.5">
           <span className="w-8 h-8 rounded-full bg-brand-600 text-white flex items-center justify-center shrink-0"><Check size={16} /></span>
           <div className="min-w-0">
