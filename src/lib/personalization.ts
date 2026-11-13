@@ -100,16 +100,35 @@ export function phraseToSentence(p: PhraseBankEntry) {
   };
 }
 
-/** 추천 문장 중 일부를 최신 표현으로 바꿔 넣습니다. 왕초보에게는 어려울 수 있어 넣지 않아요. */
-export function mixFreshPhrases(base: Record<string, any>[], fresh: PhraseBankEntry[], profile: Profile | null, savedIds: Set<string | undefined>, slots = 2): Record<string, any>[] {
-  if (!profile || profile.level === "왕초보" || fresh.length === 0 || base.length === 0) return base;
+/** 목록에서 n개를 seed 위치부터 이어 뽑습니다. seed가 바뀌면 다른 문장이 나오고, 끝나면 처음으로 돌아가요. */
+function pickRotating<T>(arr: T[], n: number, seed: number): T[] {
+  if (!arr.length || n <= 0) return [];
+  const take = Math.min(n, arr.length);
+  const start = ((seed * take) % arr.length + arr.length) % arr.length;
+  return Array.from({ length: take }, (_, i) => arr[(start + i) % arr.length]);
+}
+
+/**
+ * 오늘의 추천 문장: 내 설문에 맞춘 기본 문장 풀 + 표현 뱅크(승인된 표현) 풀에서
+ * 날짜(seed)마다 다른 문장을 돌려가며 뽑습니다. "다른 문장 보기"는 seed를 올려요.
+ * 왕초보에게는 어려울 수 있어 표현 뱅크 문장을 넣지 않아요. 이미 저장한 문장은 뺍니다.
+ */
+export function buildRecommended(profile: Profile | null, fresh: PhraseBankEntry[], savedIds: Set<string | undefined>, seed: number) {
+  if (!profile) return [];
+  const count = TIME_TO_COUNT[profile.dailyTime] || 3;
+  const basePool = getRecommendedSentences(profile, { countOverride: 12 }).filter((x) => !savedIds.has(x.id));
   const wantTone = Object.entries(TONE_EN_TO_KO).find(([, ko]) => ko === profile.tone)?.[0];
-  const candidates = fresh
-    .filter((p) => !savedIds.has(`pb-${p.id}`) && p.english.length <= 90)
-    .sort((a, b) => Number(b.tone === wantTone) - Number(a.tone === wantTone)); // 같은 말투 우선, 나머지는 최신순 유지
-  const picked = candidates.slice(0, Math.min(slots, Math.max(base.length - 1, 0))).map(phraseToSentence);
-  if (picked.length === 0) return base;
-  return [...base.slice(0, base.length - picked.length), ...picked];
+  const freshPool = profile.level === "왕초보"
+    ? []
+    : fresh
+        .filter((p) => !savedIds.has(`pb-${p.id}`) && p.english.length <= 90)
+        .sort((a, b) => Number(b.tone === wantTone) - Number(a.tone === wantTone)); // 같은 말투 먼저
+  const freshSlots = freshPool.length ? Math.min(2, count - 1) : 0;
+  const picked = [
+    ...pickRotating(basePool.length ? basePool : getRecommendedSentences(profile, { countOverride: 12 }), count - freshSlots, seed),
+    ...pickRotating(freshPool, freshSlots, seed).map(phraseToSentence),
+  ];
+  return picked;
 }
 
 export function describeProfile(p: Profile) {

@@ -4,7 +4,7 @@ import { isSupabaseConfigured } from "../lib/supabaseClient";
 import { fetchLatestPhrases, fetchNewsSentences, type PhraseBankEntry } from "../lib/persistence";
 import { SpeakButton } from "../components/common";
 import { TOPIC_TO_BANK } from "../data/survey";
-import { getNewsSentences, getRecommendedSentences, mixFreshPhrases, rankNewsForProfile } from "../lib/personalization";
+import { getNewsSentences, buildRecommended, rankNewsForProfile } from "../lib/personalization";
 import { createRecognizer, isSTTSupported } from "../lib/speech";
 import type { HistoryItem, Profile, Sentence, StoreItem } from "../types";
 import { containsKorean, describeLlmFailure, translateKoreanToEnglish, writingFeedbackProvider } from "../lib/translate";
@@ -332,19 +332,21 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
   const initialMode = startMode === "given" ? "recommended" : null;
   const [menuMode, setMenuMode] = useState<string | null>(initialMode);
   useEffect(() => { setMenuMode(initialMode); }, [initialMode]);
-  const baseRecommended = useMemo(() => getRecommendedSentences(profile), [profile]);
 
   // 표현 뱅크(Exa로 계속 수집·검수)의 최신 표현을 추천 문장에 섞어 넣습니다.
   const [freshPhrases, setFreshPhrases] = useState<PhraseBankEntry[]>([]);
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let cancelled = false;
-    fetchLatestPhrases(30).then((r) => { if (!cancelled) setFreshPhrases(r); }).catch(() => { /* 기본 추천 유지 */ });
+    fetchLatestPhrases(300).then((r) => { if (!cancelled) setFreshPhrases(r); }).catch(() => { /* 기본 추천 유지 */ });
     return () => { cancelled = true; };
   }, []);
+  // 날짜마다 다른 문장이 나오고, "다른 문장 보기"를 누르면 바로 다음 문장들로 바뀝니다.
+  const [shuffle, setShuffle] = useState(0);
+  const daySeed = Math.floor(Date.now() / 86400000);
   const recommended = useMemo(
-    () => mixFreshPhrases(baseRecommended, freshPhrases, profile, savedIds),
-    [baseRecommended, freshPhrases, profile, savedIds],
+    () => buildRecommended(profile, freshPhrases, savedIds, daySeed + shuffle),
+    [profile, freshPhrases, savedIds, daySeed, shuffle],
   );
 
   // 우선 정적 SENTENCE_BANK의 뉴스 문장으로 즉시 보여주고, Supabase에
@@ -418,7 +420,7 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
 
   const listSection = (
     <>
-      {menuMode === "recommended" && <div className="mt-4"><p className="text-xs font-bold text-gray-500 mb-2">내 설문(수준·업무 분야·말투)에 맞춘 추천 {recommended.length}문장</p><SentenceList sentences={recommended} activeId={activeSentence?.id} onSelect={setActiveSentence} renderDetail={activeCard} /></div>}
+      {menuMode === "recommended" && <div className="mt-4"><div className="flex items-center justify-between mb-2"><p className="text-xs font-bold text-gray-500">내 설문(수준·업무 분야·말투)에 맞춘 추천 {recommended.length}문장</p><button type="button" onClick={() => { setActiveSentence(null); setShuffle((n) => n + 1); }} className="text-xs font-semibold text-brand-700 bg-white border border-brand-200 rounded-full px-2.5 py-1">다른 문장 보기</button></div><SentenceList sentences={recommended} activeId={activeSentence?.id} onSelect={setActiveSentence} renderDetail={activeCard} /></div>}
       {menuMode === "news" && <div className="mt-4"><p className="text-xs font-bold text-gray-500 mb-2">내가 고른 업무 분야의 최신 뉴스 기반 {newsSentences.length}문장</p><SentenceList sentences={newsSentences} activeId={activeSentence?.id} onSelect={setActiveSentence} badge="NEWS" renderDetail={activeCard} /></div>}
     </>
   );
