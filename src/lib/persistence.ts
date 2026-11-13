@@ -156,6 +156,8 @@ export type PhraseBankEntry = {
   situation?: string;
   createdAt?: string;
   sourceUrl?: string;
+  levelBand?: string; // 왕초보 / 기초 회화 / 중상급 (AI 생성 표현에만 있어요)
+  fieldTag?: string; // 설문의 업무 영역
 };
 
 function mapPhraseRow(row: any): PhraseBankEntry {
@@ -169,6 +171,8 @@ function mapPhraseRow(row: any): PhraseBankEntry {
     situation: row.situation || undefined,
     createdAt: row.created_at || undefined,
     sourceUrl: row.source_url || undefined,
+    levelBand: row.level_band || undefined,
+    fieldTag: row.field_tag || undefined,
   };
 }
 
@@ -258,17 +262,26 @@ export async function setPhraseStatus(id: string, status: "approved" | "rejected
 /** 검수 완료(approved)된 표현 중 가장 최근 것들 (추천 문장 섞어 넣기용) */
 export async function fetchLatestPhrases(limit = 30): Promise<PhraseBankEntry[]> {
   if (!supabase) return [];
-  const { data, error } = await supabase
-    .from("hook_phrase_bank")
-    .select("id, grammar_key, english, korean_meaning, note, tone, situation, source_url, created_at")
-    .eq("status", "approved")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-  if (error || !data) {
-    if (error) console.warn("[Hook English] 최신 표현 로드 실패:", error.message);
+  const base = "id, grammar_key, english, korean_meaning, note, tone, situation, source_url, created_at";
+  const run = async (cols: string) => {
+    const out: any[] = [];
+    // Supabase는 한 번에 1,000개까지만 주므로 나눠서 가져옵니다.
+    for (let from = 0; from < limit; from += 1000) {
+      const to = Math.min(from + 999, limit - 1);
+      const { data, error } = await supabase!.from("hook_phrase_bank").select(cols).eq("status", "approved").order("created_at", { ascending: false }).range(from, to);
+      if (error) return { error, rows: null as any[] | null };
+      out.push(...(data || []));
+      if (!data || data.length < to - from + 1) break;
+    }
+    return { error: null, rows: out };
+  };
+  let r = await run(`${base}, level_band, field_tag`);
+  if (r.error) r = await run(base); // 수준·분야 컬럼(v4 SQL) 추가 전에도 동작하도록
+  if (r.error || !r.rows) {
+    console.warn("[Hook English] 최신 표현 로드 실패:", r.error?.message);
     return [];
   }
-  return data.map(mapPhraseRow);
+  return r.rows.map(mapPhraseRow);
 }
 
 /** 검수 완료(approved)된 표현 중 상황 태그가 맞는 것(예: "화상회의 및 발표")을 가져옵니다. 실패하면 빈 배열. */

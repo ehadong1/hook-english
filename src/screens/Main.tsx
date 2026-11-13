@@ -338,7 +338,7 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     let cancelled = false;
-    fetchLatestPhrases(300).then((r) => { if (!cancelled) setFreshPhrases(r); }).catch(() => { /* 기본 추천 유지 */ });
+    fetchLatestPhrases(3000).then((r) => { if (!cancelled) setFreshPhrases(r); }).catch(() => { /* 기본 추천 유지 */ });
     return () => { cancelled = true; };
   }, []);
   // 날짜마다 다른 문장이 나오고, "다른 문장 보기"를 누르면 바로 다음 문장들로 바뀝니다.

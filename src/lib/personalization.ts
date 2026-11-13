@@ -85,8 +85,8 @@ const TONE_EN_TO_KO: Record<string, string> = { formal: "정중한 비즈니스"
 export function phraseToSentence(p: PhraseBankEntry) {
   return {
     id: `pb-${p.id}`,
-    level: undefined,
-    topic: "일상 및 오피스 회화",
+    level: p.levelBand,
+    topic: p.fieldTag ? (TOPIC_TO_BANK[p.fieldTag] || "일상 및 오피스 회화") : "일상 및 오피스 회화",
     tone: TONE_EN_TO_KO[p.tone || "neutral"] || "중립 실무",
     situations: p.situation ? [p.situation] : [],
     text: p.english,
@@ -118,12 +118,18 @@ export function buildRecommended(profile: Profile | null, fresh: PhraseBankEntry
   const count = TIME_TO_COUNT[profile.dailyTime] || 3;
   const basePool = getRecommendedSentences(profile, { countOverride: 12 }).filter((x) => !savedIds.has(x.id));
   const wantTone = Object.entries(TONE_EN_TO_KO).find(([, ko]) => ko === profile.tone)?.[0];
-  const freshPool = profile.level === "왕초보"
-    ? []
-    : fresh
-        .filter((p) => !savedIds.has(`pb-${p.id}`) && p.english.length <= 90)
-        .sort((a, b) => Number(b.tone === wantTone) - Number(a.tone === wantTone)); // 같은 말투 먼저
-  const freshSlots = freshPool.length ? Math.min(2, count - 1) : 0;
+  // 설문에 맞춘 순서: 수준(같은 구간) → 업무 분야 → 말투. AI 생성 표현은 수준 라벨이 있어 왕초보에게도 쓸 수 있어요.
+  const myFields: string[] = profile.topics || [];
+  const usable = fresh.filter((p) => !savedIds.has(`pb-${p.id}`) && p.english.length <= 90);
+  const sameLevel = usable.filter((p) => (p.levelBand ? p.levelBand === profile.level : profile.level !== "왕초보"));
+  const fieldOk = (p: PhraseBankEntry) => !p.fieldTag || p.fieldTag === "공통" || myFields.length === 0 || myFields.includes(p.fieldTag);
+  const toneOk = (p: PhraseBankEntry) => !wantTone || p.tone === wantTone;
+  const tier1 = sameLevel.filter((p) => fieldOk(p) && toneOk(p));
+  const tier2 = sameLevel.filter((p) => fieldOk(p) && !toneOk(p));
+  const tier3 = sameLevel.filter((p) => !fieldOk(p));
+  // 가장 잘 맞는 문장이 충분하면 그것만 돌리고, 모자라면 점점 넓혀요.
+  const freshPool = tier1.length >= 15 ? tier1 : [...tier1, ...tier2].length >= 15 ? [...tier1, ...tier2] : [...tier1, ...tier2, ...tier3];
+  const freshSlots = freshPool.length >= 9 ? count : freshPool.length ? Math.min(2, count - 1) : 0;
   const picked = [
     ...pickRotating(basePool.length ? basePool : getRecommendedSentences(profile, { countOverride: 12 }), count - freshSlots, seed),
     ...pickRotating(freshPool, freshSlots, seed).map(phraseToSentence),
