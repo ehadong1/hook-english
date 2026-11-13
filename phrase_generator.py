@@ -4,9 +4,11 @@
 
 품질 관문 (모두 통과해야 approved)
 1) 기계 검사: 수준별 단어 수 상한, 한글/영어 형식, 중복(이미 저장된 문장과 같은 문장) 제거
-2) 독립 2차 검수(gpt-4o, 생성 모델 gpt-4o-mini와 다름): 자연스러움 · 업무 실용성 ·
-   수준 적합 · 업무 분야 적합 · 한글 번역 정확도를 1~5점으로 채점
-   - 전부 4점 이상 + 수준 판정이 'match' → approved
+2) 독립 2차 검수(gpt-4o, 생성 모델 gpt-4o-mini와 다름): 영어만 보고 스스로 번역한 뒤 저장된 한글과
+   뜻이 같은지 비교(불일치는 반려) + 자연스러움 · 업무 실용성 · 분야 적합을 엄격하게 1~5점 채점
+   - 분야 특화 문장만 해당 분야 라벨, 범용 문장은 '공통'으로 저장
+   - 같은 시작 표현이 전체의 4%를 넘으면 더 받지 않음(다양성)
+   - 전부 4점 이상 + 번역 일치 + 수준 판정 'match' → approved
    - 하나라도 2점 이하 또는 수준이 크게 어긋남 → rejected
    - 그 외 → pending_review (앱의 '표현 검수' 화면에서 사람이 확인)
 
@@ -67,18 +69,25 @@ SCENARIOS = [
 ]
 
 GEN_SYSTEM = """You write natural workplace English sentences for Korean learners.
-Return ONLY JSON: {"items":[{"english":"...","korean":"자연스러운 한국어 뜻","note":"이 표현을 쓰는 맥락 한 줄(한국어)","grammar_key":"one of: %s"}]}
+Return ONLY JSON: {"items":[{"english":"...","korean":"자연스러운 한국어 뜻","note":"이 표현을 쓰는 맥락 한 줄(한국어)","field_specific":true or false,"grammar_key":"one of: %s"}]}
 Rules:
 - Each item is ONE complete, natural sentence a real colleague would say or write at work. No textbook rule explanations.
 - Match the requested level strictly (word limit and difficulty). Use the field's real workplace context when natural, otherwise keep it general.
-- Vary the scenario and structure; do not repeat the same opening words.
+- Set "field_specific": true ONLY if the sentence clearly contains vocabulary or context specific to the requested field (e.g. returns, valuation, sprint, defect rate). Generic office sentences (meetings, scheduling, thanks) must be false.
+- Vary the scenario and structure. Do NOT start more than one sentence with the same first two words, and avoid starting with "Could you" more than once.
+- Higher levels must show real range: idioms, collocations, hedging, or complex structures, not just polite basics.
 - Korean must be a natural translation, not word-for-word.""" % ", ".join(GRAMMAR_KEYS)
 
 VERIFY_SYSTEM = """You are a strict reviewer of English sentences for a Korean business-English app.
-For each item, judge INDEPENDENTLY (you do not know who wrote it). Return ONLY JSON:
-{"results":[{"id":0,"naturalness":1-5,"usefulness":1-5,"level_fit":"too_easy|match|too_hard","field_fit":1-5,"korean_accuracy":1-5,"issue":"short Korean note"}]}
-Scoring: naturalness = would a native speaker really say/write this? usefulness = would a Korean professional actually use it at work and learn something? field_fit = fits the stated field or is reasonably general (general-purpose sentences should get 4+). korean_accuracy = is the Korean meaning accurate and natural?
-Be strict: give 3 or below for stiff, odd, trivial ('This is a pen'-type), or inaccurate items. Level definitions are given per item."""
+For each item, judge INDEPENDENTLY (you do not know who wrote it). First write YOUR OWN natural Korean translation of the English only (do not copy the given Korean), then compare meaning with the given Korean.
+Return ONLY JSON:
+{"results":[{"id":0,"my_korean":"...","korean_matches":true|false,"naturalness":1-5,"usefulness":1-5,"level_fit":"too_easy|match|too_hard","field_fit":1-5,"issue":"short Korean note"}]}
+Scoring is strict: a typical good sentence scores 3-4. Give 5 only when excellent (rare, under 20%).
+- naturalness: would a native speaker really say/write this at work? (semicolon-joined or stiff textbook sentences: 3 or below)
+- usefulness: would a Korean professional actually reuse it and learn something? Trivial, wordy or padded sentences: 3 or below.
+- field_fit: if the item claims a field (field_specific=true) the sentence must clearly belong to it; otherwise rate whether it is reasonably general.
+- korean_matches=false if the given Korean changes the meaning (e.g. 'follow up' rendered as 'check', 'adjust' as 'postpone') or is awkward enough to mislead.
+Level definitions are given per item."""
 
 
 def chat_json(model: str, system: str, user: str, temperature: float) -> dict:
@@ -90,6 +99,8 @@ def chat_json(model: str, system: str, user: str, temperature: float) -> dict:
             )
             return json.loads(r.choices[0].message.content or "{}")
         except Exception as e:  # 일시 오류는 재시도
+            if "401" in str(e) or "invalid_api_key" in str(e):
+                raise SystemExit("❌ OpenAI 키가 거절됐어요(401). .env의 OPENAI_API_KEY를 확인하세요. (키 앞뒤 공백·따옴표, 폐기된 키 여부)")
             time.sleep(2 + attempt * 3)
             last = e
     print(f"  ⚠️ {model} 호출 실패: {last}")
@@ -141,7 +152,7 @@ def run_cell(cell):
 
 def verify(cell, items):
     band, field, tone, situation = cell
-    payload = [{"id": i, "english": it["english"], "korean": it["korean"]} for i, it in enumerate(items)]
+    payload = [{"id": i, "english": it["english"], "korean": it["korean"], "field_specific": bool(it.get("field_specific"))} for i, it in enumerate(items)]
     user = (
         f"Claimed level: {band} — {BANDS[band]['guide']} (max {BANDS[band]['max_words']} words)\n"
         f"Claimed field: {field}\nClaimed tone: {TONES[tone]}\nSituation: {situation}\n"
@@ -154,15 +165,27 @@ def verify(cell, items):
 def decide(r: dict | None):
     if not r:
         return "pending_review", 0, "2차 검수 응답 없음"
-    scores = [r.get("naturalness", 0), r.get("usefulness", 0), r.get("field_fit", 0), r.get("korean_accuracy", 0)]
+    scores = [r.get("naturalness", 0), r.get("usefulness", 0), r.get("field_fit", 0)]
     level = r.get("level_fit", "")
+    matches = r.get("korean_matches") is True
     low = min(scores)
     avg = round(sum(scores) / len(scores), 2)
+    issue = r.get("issue", "")
+    if not matches:
+        return "rejected", avg, f"번역 불일치: {issue} (검수 번역: {r.get('my_korean', '')})"
     if low <= 2 or (level in ("too_hard", "too_easy") and low <= 3):
-        return "rejected", avg, r.get("issue", "")
+        return "rejected", avg, issue
     if low >= 4 and level == "match":
-        return "approved", avg, r.get("issue", "")
-    return "pending_review", avg, r.get("issue", "")
+        return "approved", avg, issue
+    return "pending_review", avg, issue
+
+
+OPENER_CAP = 0.04  # 같은 시작 표현(첫 두 단어)이 전체의 4%를 넘으면 더 받지 않아요
+OPENER_MIN = 25    # 표본이 너무 적을 때는 상한을 적용하지 않아요
+
+
+def opener(english: str) -> str:
+    return " ".join(norm(english).split()[:2])
 
 
 def main():
@@ -170,6 +193,10 @@ def main():
     random.shuffle(cells)
     cells = cells[:MAX_CELLS]
     seen = load_seen()
+    openers: dict = {}
+    for e in seen:
+        k = " ".join(e.split()[:2])
+        openers[k] = openers.get(k, 0) + 1
     print(f"모드 {MODE} · 칸 {len(cells)}개 × {PER_CELL}문장 · 기존 표현 {len(seen)}개")
 
     stats = {"approved": 0, "pending_review": 0, "rejected": 0, "dup": 0, "machine_drop": 0}
@@ -193,13 +220,19 @@ def main():
                 if key in seen:
                     stats["dup"] += 1
                     continue
+                op = opener(it["english"])
+                total_seen = max(len(seen), 1)
+                if total_seen >= OPENER_MIN and openers.get(op, 0) / total_seen > OPENER_CAP:
+                    stats["opener_cap"] = stats.get("opener_cap", 0) + 1
+                    continue
+                openers[op] = openers.get(op, 0) + 1
                 seen.add(key)
                 band, field, tone, situation = cell
                 gk = it.get("grammar_key") if it.get("grammar_key") in GRAMMAR_KEYS else "idiomaticExpression"
                 row = {
                     "grammar_key": gk, "english": it["english"].strip(), "korean_meaning": it["korean"].strip(),
                     "tone": tone, "situation": situation, "situation_tag": situation, "note": it.get("note", ""),
-                    "source_type": "generated", "level_band": band, "field_tag": field,
+                    "source_type": "generated", "level_band": band, "field_tag": field if it.get("field_specific") is True else "공통",
                     "verified_score": avg, "verified_reason": f"AI 생성({GEN_MODEL}) → 독립 검수({VERIFY_MODEL}) {avg}점: {issue}",
                     "quality": raw, "status": status,
                 }
@@ -210,7 +243,7 @@ def main():
                     msg = str(e)
                     print(f"  ❌ 저장 실패(v4 SQL을 실행했나요?): {msg[:120]}")
                     raise SystemExit(1)
-    print(f"\n완료: 승인 {stats['approved']} · 검토대기 {stats['pending_review']} · 반려 {stats['rejected']} · 중복 {stats['dup']}")
+    print(f"\n완료: 승인 {stats['approved']} · 검토대기 {stats['pending_review']} · 반려 {stats['rejected']} · 중복 {stats['dup']} · 시작표현 상한으로 제외 {stats.get('opener_cap', 0)}")
     total = stats["approved"] + stats["pending_review"] + stats["rejected"]
     if total:
         print(f"승인율 {stats['approved'] / total:.0%} (반려·대기는 앱 '표현 검수'에서 확인)")
