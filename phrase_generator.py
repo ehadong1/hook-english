@@ -7,14 +7,14 @@
 2) 독립 2차 검수(gpt-4o, 생성 모델 gpt-4o-mini와 다름): 영어만 보고 스스로 번역한 뒤 저장된 한글과
    뜻이 같은지 비교(불일치는 반려) + 자연스러움 · 업무 실용성 · 분야 적합을 엄격하게 1~5점 채점
    - 분야 특화 문장만 해당 분야 라벨, 범용 문장은 '공통'으로 저장
-   - 같은 시작 표현이 전체의 4%를 넘으면 더 받지 않음(다양성)
+   - 같은 시작 표현(수준별 첫 4단어)은 2개까지만, 전체 첫 두 단어는 4%를 넘으면 더 받지 않음(다양성)
    - 전부 4점 이상 + 번역 일치 + 수준 판정 'match' → approved
    - 하나라도 2점 이하 또는 수준이 크게 어긋남 → rejected
    - 그 외 → pending_review (앱의 '표현 검수' 화면에서 사람이 확인)
 
 실행 방식 (환경변수 PHRASE_GEN_MODE)
 - bulk : 모든 칸(3수준 × 12분야 × 3말투 × 4상황 = 432칸)을 한 번씩 → 최대 약 2,600문장 후보
-- daily: 매일 무작위 24칸 → 약 140문장 후보 (기본)
+- daily: 매일 무작위 48칸 → 약 280문장 후보 (기본)
 PHRASE_GEN_PER_CELL(기본 6), PHRASE_GEN_MAX_CELLS(기본 daily 24 / bulk 432)로 조절합니다.
 """
 import os
@@ -43,7 +43,7 @@ VERIFY_MODEL = "gpt-4o"
 
 MODE = os.getenv("PHRASE_GEN_MODE", "daily")
 PER_CELL = int(os.getenv("PHRASE_GEN_PER_CELL", "6"))
-MAX_CELLS = int(os.getenv("PHRASE_GEN_MAX_CELLS", "432" if MODE == "bulk" else "24"))
+MAX_CELLS = int(os.getenv("PHRASE_GEN_MAX_CELLS", "432" if MODE == "bulk" else "48"))
 
 BANDS = {
     "왕초보": {"max_words": 9, "guide": "CEFR A1~A2. 아주 쉬운 단어와 짧은 한 문장. 현재형·be동사·can/want to 같은 기본 구조. 어려운 관용구 금지."},
@@ -66,7 +66,29 @@ SCENARIOS = [
     "checking if everyone is ready", "apologizing for a mistake", "asking for a document or data", "setting priorities",
     "welcoming a visitor", "booking a room or flight", "closing an email", "wrapping up a meeting",
     "raising a risk or concern", "asking about next steps", "confirming understanding", "offering help",
+    "presenting a result or number", "asking a colleague to review something", "rescheduling a meeting", "saying you are running late",
+    "congratulating a teammate", "giving constructive criticism", "explaining a process step by step", "asking about someone's availability",
+    "making a complaint or escalating an issue", "agreeing with a proposal", "asking for a quote or estimate", "confirming a delivery or deadline",
+    "introducing a new idea", "asking for permission", "refusing an offer kindly", "checking on progress",
+    "welcoming a new team member", "explaining a decision to your boss", "asking for a recommendation", "clarifying responsibilities",
+    "inviting someone to an event", "taking or leaving a message", "comparing two options", "summarizing a call",
+    "asking for more details", "pointing out a mistake politely", "setting expectations", "saying goodbye after a visit",
 ]
+
+FIELD_TERMS = {
+    "IT/소프트웨어": "deploy, release, bug, sprint, API, server, code review, backlog, outage, pull request",
+    "제품/PM": "roadmap, backlog, MVP, user story, stakeholder, launch, KPI, requirements, prioritize, scope",
+    "마케팅/세일즈": "campaign, lead, conversion, pipeline, quota, brand, proposal, discount, target audience, follow-up call",
+    "재무/회계": "budget, invoice, forecast, expense report, audit, cash flow, quarter-end, reconciliation, variance, approval limit",
+    "HR/채용": "candidate, interview, onboarding, performance review, headcount, offer letter, referral, probation, benefits, turnover",
+    "법무/컴플라이언스": "contract, clause, compliance, liability, confidentiality, regulation, NDA, review, risk, approval",
+    "제조/생산/품질": "production line, defect rate, yield, inspection, lead time, supplier, maintenance, shipment, quality check, batch",
+    "의료/바이오": "clinical trial, patient, dosage, regulatory approval, lab result, protocol, side effect, sample, study, FDA",
+    "금융/투자": "portfolio, return, risk exposure, valuation, asset allocation, interest rate, fund, due diligence, market outlook, hedge",
+    "컨설팅/전략": "client, deliverable, framework, benchmark, market entry, recommendation, workstream, kickoff, insight, roadmap",
+    "디자인/크리에이티브": "mockup, brief, wireframe, brand guidelines, feedback round, prototype, layout, color palette, revision, deadline for assets",
+    "경영/임원": "board meeting, strategy, quarterly results, headcount plan, stakeholder, KPI, investment, restructuring, vision, priorities",
+}
 
 GEN_SYSTEM = """You write natural workplace English sentences for Korean learners.
 Return ONLY JSON: {"items":[{"english":"...","korean":"자연스러운 한국어 뜻","note":"이 표현을 쓰는 맥락 한 줄(한국어)","field_specific":true or false,"grammar_key":"one of: %s"}]}
@@ -146,7 +168,8 @@ def run_cell(cell):
     scenarios = random.sample(SCENARIOS, PER_CELL)
     user = (
         f"Level: {band} — {BANDS[band]['guide']} (max {BANDS[band]['max_words']} words)\n"
-        f"Field: {field}\nTone: {TONES[tone]} ({tone})\nSituation: {situation}\n"
+        f"Field: {field}\nField vocabulary (use real terms from this list in at least half of the sentences, naturally): {FIELD_TERMS[field]}\n"
+        f"Tone: {TONES[tone]} ({tone})\nSituation: {situation}\n"
         f"Write {PER_CELL} different sentences, one per scenario: " + "; ".join(scenarios)
     )
     gen = chat_json(GEN_MODEL, GEN_SYSTEM, user, 0.9).get("items", [])
@@ -211,7 +234,7 @@ def main():
     starts: dict = {}  # (수준, 첫 3단어) 별 개수 — 비슷한 문장 반복 방지
     try:
         for r in supabase.table("hook_phrase_bank").select("english,level_band").eq("source_type", "generated").limit(5000).execute().data:
-            k = (r.get("level_band"), " ".join(norm(r["english"]).split()[:3]))
+            k = (r.get("level_band"), " ".join(norm(r["english"]).split()[:4]))
             starts[k] = starts.get(k, 0) + 1
     except Exception:
         pass
@@ -247,7 +270,7 @@ def main():
                     stats["opener_cap"] = stats.get("opener_cap", 0) + 1
                     continue
                 band, field, tone, situation = cell
-                sk = (band, " ".join(norm(it["english"]).split()[:3]))
+                sk = (band, " ".join(norm(it["english"]).split()[:4]))
                 if starts.get(sk, 0) >= 2:
                     stats["opener_cap"] = stats.get("opener_cap", 0) + 1
                     continue
