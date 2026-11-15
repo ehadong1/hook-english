@@ -4,7 +4,7 @@ import { isSupabaseConfigured } from "../lib/supabaseClient";
 import { fetchLatestPhrases, fetchNewsSentences, type PhraseBankEntry } from "../lib/persistence";
 import { SpeakButton } from "../components/common";
 import { TOPIC_TO_BANK } from "../data/survey";
-import { getNewsSentences, buildRecommended, rankNewsForProfile } from "../lib/personalization";
+import { getNewsSentences, buildRecommended, rankNewsForProfile, getRoleplayScene } from "../lib/personalization";
 import { createRecognizer, isSTTSupported } from "../lib/speech";
 import type { HistoryItem, Profile, Sentence, StoreItem } from "../types";
 import { containsKorean, describeLlmFailure, translateKoreanToEnglish, writingFeedbackProvider } from "../lib/translate";
@@ -74,9 +74,12 @@ export function WritingPractice({ profile, mode, savedSentences, onClose }: { pr
   const [analyzing, setAnalyzing] = useState(false);
   const recRef = useRef<any>(null);
   const sttOk = isSTTSupported();
-  const prompt = mode === "diary"
-    ? "오늘 배운 문장을 활용해 영어 일기를 3~5문장 써 보세요."
-    : "배운 표현을 써서 업무 상황 문장을 만들어 보세요.";
+  const isDiary = mode === "diary";
+  const prompt = isDiary
+    ? "오늘 있었던 일을 영어 일기로 3~5문장 써 보세요. 배운 표현을 하나 넣어 보면 좋아요."
+    : "아래 상황에서 쓸 한 문장을 직접 만들어 보세요. 배운 표현을 넣어 보세요.";
+  const scene = useMemo(() => getRoleplayScene(profile), [profile]);
+  const target = savedSentences.length ? savedSentences[savedSentences.length - 1].text : null;
   const hint = savedSentences.length
     ? `힌트: ${savedSentences.slice(-2).map((s) => s.text).join(" / ")}`
     : "먼저 문장을 학습·저장하면 힌트가 표시됩니다.";
@@ -108,12 +111,19 @@ export function WritingPractice({ profile, mode, savedSentences, onClose }: { pr
         </div>
         <button type="button" aria-label="닫기" onClick={onClose} className="text-gray-400 p-1"><X size={16} /></button>
       </div>
-      <p className="text-xs text-brand-600 bg-brand-50 rounded-lg px-2 py-1 mb-2">{hint}</p>
+      {isDiary ? (
+        <p className="text-xs text-amber-800 bg-amber-50 rounded-lg px-2 py-1 mb-2">{hint}</p>
+      ) : (
+        <div className="mb-2 rounded-lg bg-emerald-50 px-2.5 py-2 text-xs text-emerald-900 leading-relaxed">
+          <p><b>상황</b> · {scene}</p>
+          {target && <p className="mt-1"><b>써볼 표현</b> · {target}</p>}
+        </div>
+      )}
       <textarea
         value={text}
         onChange={(e) => { setText(e.target.value); setFeedback(null); }}
-        rows={4}
-        placeholder="Type or speak in English..."
+        rows={isDiary ? 6 : 2}
+        placeholder={isDiary ? "Today I ..." : "이 상황에서 할 말을 영어 한 문장으로..."}
         className="w-full rounded-xl bg-gray-50 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand-200"
       />
       <div className="flex gap-2 mt-2">
@@ -123,7 +133,7 @@ export function WritingPractice({ profile, mode, savedSentences, onClose }: { pr
           </button>
         )}
         <button onClick={submit} disabled={!text.trim() || analyzing} className="flex-1 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5">
-          {analyzing ? <><Loader2 size={14} className="animate-spin" /> 분석 중...</> : "피드백 받기"}
+          {analyzing ? <><Loader2 size={14} className="animate-spin" /> 분석 중...</> : isDiary ? "일기 첨삭 받기" : "내 문장 확인하기"}
         </button>
       </div>
       {feedback && (

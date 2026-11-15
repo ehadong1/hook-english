@@ -140,7 +140,17 @@ export function SentenceDissection({ sentence, history, onSaveWord, defaultOpen 
   useEffect(() => {
     if (!open || !keysSig) { setLive([]); return; }
     let cancelled = false;
-    fetchPhraseBank(keysSig.split(","), 3).then((r) => { if (!cancelled) setLive(r.filter((p) => p.english.trim().toLowerCase() !== sentence.text.trim().toLowerCase())); });
+    // 같은 문법이라는 이유만으로 뜻이 전혀 다른 문장이 나오지 않도록, 원래 문장과 핵심 단어가 겹치는 표현만 보여줍니다.
+    const STOP = new Set(["that", "this", "with", "have", "will", "would", "could", "should", "about", "from", "your", "please", "there", "their", "what", "when", "which", "been", "they", "them", "were", "into", "also", "just"]);
+    const core = (t: string) => new Set(t.toLowerCase().replace(/[^a-z\s']/g, " ").split(/\s+/).filter((w) => w.length >= 4 && !STOP.has(w)).map((w) => w.replace(/(ing|ed|es|s)$/, "")));
+    const mine = core(sentence.text);
+    fetchPhraseBank(keysSig.split(","), 60).then((r) => {
+      if (cancelled) return;
+      const related = r
+        .filter((p) => p.english.trim().toLowerCase() !== sentence.text.trim().toLowerCase())
+        .filter((p) => [...core(p.english)].some((w) => mine.has(w)));
+      setLive(related.slice(0, 3));
+    });
     return () => { cancelled = true; };
   }, [open, keysSig, sentence.text]);
 
