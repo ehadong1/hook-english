@@ -95,7 +95,7 @@ export function phraseToSentence(p: PhraseBankEntry) {
     vocab: [] as { word: string; meaning: string; freq?: string }[],
     nativeAlternatives: p.note ? [{ en: p.english, ko: p.korean, note: p.note }] : [],
     sourceUrl: p.sourceUrl,
-    badge: "최신 표현",
+    badge: p.sourceType === "generated" ? "맞춤 문장" : "최신 표현", // AI 생성 문장은 "최신"이 아니에요
     isNews: false,
   };
 }

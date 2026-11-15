@@ -156,6 +156,7 @@ export type PhraseBankEntry = {
   situation?: string;
   createdAt?: string;
   sourceUrl?: string;
+  sourceType?: string; // collector / collector_fresh / generated / user
   levelBand?: string; // 왕초보 / 기초 회화 / 중상급 (AI 생성 표현에만 있어요)
   fieldTag?: string; // 설문의 업무 영역
 };
@@ -171,6 +172,7 @@ function mapPhraseRow(row: any): PhraseBankEntry {
     situation: row.situation || undefined,
     createdAt: row.created_at || undefined,
     sourceUrl: row.source_url || undefined,
+    sourceType: row.source_type || undefined,
     levelBand: row.level_band || undefined,
     fieldTag: row.field_tag || undefined,
   };
@@ -262,7 +264,7 @@ export async function setPhraseStatus(id: string, status: "approved" | "rejected
 /** 검수 완료(approved)된 표현 중 가장 최근 것들 (추천 문장 섞어 넣기용) */
 export async function fetchLatestPhrases(limit = 30): Promise<PhraseBankEntry[]> {
   if (!supabase) return [];
-  const base = "id, grammar_key, english, korean_meaning, note, tone, situation, source_url, created_at";
+  const base = "id, grammar_key, english, korean_meaning, note, tone, situation, source_url, created_at, source_type";
   const run = async (cols: string) => {
     const out: any[] = [];
     // Supabase는 한 번에 1,000개까지만 주므로 나눠서 가져옵니다.
@@ -307,8 +309,9 @@ export async function fetchPhraseBank(grammarKeys: string[], limit = 3): Promise
   if (!supabase || grammarKeys.length === 0) return [];
   const { data, error } = await supabase
     .from("hook_phrase_bank")
-    .select("id, grammar_key, english, korean_meaning, note, tone, situation, source_url, created_at")
+    .select("id, grammar_key, english, korean_meaning, note, tone, situation, source_url, created_at, source_type")
     .eq("status", "approved")
+    .neq("source_type", "generated") // AI가 만든 문장은 "원어민 표현"으로 보여주지 않아요
     .in("grammar_key", grammarKeys)
     .order("created_at", { ascending: false })
     .limit(limit);

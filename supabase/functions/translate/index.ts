@@ -57,6 +57,7 @@ async function fetchReferencePhrases(situation: string, tone: string): Promise<s
     const params = new URLSearchParams({
       select: "english,korean_meaning,tone",
       status: "eq.approved",
+      source_type: "neq.generated", // 실제 수집·제안 표현만 참고 (AI 생성 문장이 AI를 다시 가르치지 않게)
       order: "created_at.desc",
       limit: "40",
     });
