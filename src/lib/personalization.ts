@@ -1,4 +1,5 @@
 import { SENTENCE_BANK } from "../data/sentences";
+import { GRAMMAR_LIBRARY, detectGrammarKeysFromText } from "../data/grammar";
 import { LEVEL_TO_LEGACY, TIME_TO_COUNT, TOPIC_TO_BANK } from "../data/survey";
 import type { HistoryItem, Profile } from "../types";
 import type { PhraseBankEntry } from "./persistence";
@@ -91,7 +92,7 @@ export function phraseToSentence(p: PhraseBankEntry) {
     situations: p.situation ? [p.situation] : [],
     text: p.english,
     translation: p.korean,
-    grammarKeys: [p.grammarKey],
+    grammarKeys: GRAMMAR_LIBRARY[p.grammarKey] ? [p.grammarKey] : (detectGrammarKeysFromText(p.english).slice(0, 2).length ? detectGrammarKeysFromText(p.english).slice(0, 2) : ["idiomaticExpression"]),
     vocab: [] as { word: string; meaning: string; freq?: string }[],
     nativeAlternatives: p.note ? [{ en: p.english, ko: p.korean, note: p.note }] : [],
     sourceUrl: p.sourceUrl,
@@ -113,7 +114,7 @@ function pickRotating<T>(arr: T[], n: number, seed: number): T[] {
  * 날짜(seed)마다 다른 문장을 돌려가며 뽑습니다. "다른 문장 보기"는 seed를 올려요.
  * 왕초보에게는 어려울 수 있어 표현 뱅크 문장을 넣지 않아요. 이미 저장한 문장은 뺍니다.
  */
-export function buildRecommended(profile: Profile | null, fresh: PhraseBankEntry[], savedIds: Set<string | undefined>, seed: number) {
+export function buildRecommended(profile: Profile | null, fresh: PhraseBankEntry[], savedIds: Set<string | undefined>, seed: number, weakKeys: string[] = []) {
   if (!profile) return [];
   const count = TIME_TO_COUNT[profile.dailyTime] || 3;
   const basePool = getRecommendedSentences(profile, { countOverride: 12 }).filter((x) => !savedIds.has(x.id));
@@ -130,10 +131,15 @@ export function buildRecommended(profile: Profile | null, fresh: PhraseBankEntry
   // 가장 잘 맞는 문장이 충분하면 그것만 돌리고, 모자라면 점점 넓혀요.
   const freshPool = tier1.length >= 15 ? tier1 : [...tier1, ...tier2].length >= 15 ? [...tier1, ...tier2] : [...tier1, ...tier2, ...tier3];
   const freshSlots = freshPool.length >= 9 ? count : freshPool.length ? Math.min(2, count - 1) : 0;
+  // 내가 자주 틀린 문법 유형(실수 노트)이 있으면, 같은 수준의 문장 중 그 유형을 연습할 수 있는 문장 1개를 먼저 넣어요.
+  const weakSet = new Set(weakKeys);
+  const weakPool = weakSet.size ? sameLevel.filter((p) => weakSet.has(p.grammarKey)) : [];
+  const weakPick = weakPool.length ? pickRotating(weakPool, 1, seed).map(phraseToSentence) : [];
   const picked = [
+    ...weakPick,
     ...pickRotating(basePool.length ? basePool : getRecommendedSentences(profile, { countOverride: 12 }), count - freshSlots, seed),
-    ...pickRotating(freshPool, freshSlots, seed).map(phraseToSentence),
-  ];
+    ...pickRotating(freshPool.filter((p) => !weakPick.some((w) => w.id === `pb-${p.id}`)), Math.max(freshSlots - weakPick.length, 0), seed).map(phraseToSentence),
+  ].slice(0, count);
   return picked;
 }
 

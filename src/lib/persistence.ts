@@ -146,6 +146,41 @@ export async function insertHistoryRemote(deviceId: string | null, entry: Histor
   if (error) console.warn("[Hook English] 학습 이력 저장 실패:", error.message);
 }
 
+/* ---------------- 내가 만든 문장 · 실수 기록 ---------------- */
+
+export type WritingLogEntry = {
+  id?: string;
+  original: string;
+  corrected?: string;
+  natural?: string;
+  errors: { type: string; wrong: string; right: string; note?: string; grammarKey?: string }[];
+  createdAt?: string;
+};
+
+export async function insertWritingLog(deviceId: string | null, entry: WritingLogEntry) {
+  if (!supabase || !deviceId) return;
+  const { error } = await supabase.from("hook_writing_log").insert({
+    device_id: deviceId,
+    original: entry.original,
+    corrected: entry.corrected ?? null,
+    natural: entry.natural ?? null,
+    errors: entry.errors,
+  });
+  if (error) console.warn("[Hook English] 실수 기록 저장 실패:", error.message);
+}
+
+export async function fetchWritingLog(deviceId: string | null, limit = 100): Promise<WritingLogEntry[]> {
+  if (!supabase || !deviceId) return [];
+  const { data, error } = await supabase
+    .from("hook_writing_log")
+    .select("id, original, corrected, natural, errors, created_at")
+    .eq("device_id", deviceId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return data.map((r: any) => ({ id: r.id, original: r.original, corrected: r.corrected || undefined, natural: r.natural || undefined, errors: Array.isArray(r.errors) ? r.errors : [], createdAt: r.created_at }));
+}
+
 export type PhraseBankEntry = {
   id: string;
   grammarKey: string;

@@ -49,7 +49,10 @@ export async function callLlmTranslate(
   return data as TranslateResult;
 }
 
+export type WritingError = { type: string; wrong: string; right: string; note?: string; grammarKey?: string };
+
 export type WritingFeedbackResult = {
+  errors?: WritingError[];
   corrected: string;
   natural: string;
   structure: string;

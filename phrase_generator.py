@@ -54,8 +54,8 @@ FIELDS = ["IT/소프트웨어", "제품/PM", "마케팅/세일즈", "재무/회�
           "제조/생산/품질", "의료/바이오", "금융/투자", "컨설팅/전략", "디자인/크리에이티브", "경영/임원"]
 TONES = {"formal": "정중한 비즈니스", "neutral": "중립 실무", "casual": "캐주얼 친근"}
 SITUATIONS = ["외국인 동료와 일상 대화", "화상회의 및 발표", "이메일 및 문서", "해외 출장 및 여행"]
-GRAMMAR_KEYS = ["politeRequest", "conditional", "presentPerfect", "passive", "contrast", "reason", "suggestion",
-                "modal", "futurePlan", "comparison", "idiomaticExpression"]
+GRAMMAR_KEYS = ["politeRequest", "nearFuture", "reportedSpeech", "phrasalVerb", "modalSuggestion", "conditionalPossibility",
+                "presentProgressive", "quantifier", "letMeStructure", "concessiveContrast", "idiomaticExpression"]  # 앱 GRAMMAR_LIBRARY 키와 같아야 해설이 연결돼요
 
 SCENARIOS = [
     "asking for a deadline extension", "confirming a meeting time", "giving a status update", "disagreeing politely",

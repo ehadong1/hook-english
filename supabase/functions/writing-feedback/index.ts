@@ -20,6 +20,11 @@ const SYSTEM_PROMPT = `당신은 한국어가 모국어인 직장인의 "비즈�
 - structure: 문장 구조(주어/동사/목적어 등)에 대한 한 줄 평가나 조언을 한국어로.
 - tips: 이 사용자의 약점(weaknesses)과 글을 참고해 실질적인 학습 팁 1~3개, 한국어로.
 - keywordsUsed: 이 글에서 눈여겨볼 만한 영어 단어/표현 최대 5개 (원문에 실제 등장한 것 위주).
+- errors: 사용자가 영어로 쓴 원문에서 실제로 틀린 부분 목록(최대 5개). 틀린 곳이 없으면 빈 배열 [].
+  각 항목: type(한국어 유형: 관사, 전치사, 시제, 단수/복수, 단어 선택, 어순, 정중함, 철자, 누락, 기타 중 하나),
+  wrong(원문에서 틀린 부분 그대로), right(고친 부분), note(왜 틀렸는지 한국어 한 줄),
+  grammarKey(아래 중 가장 가까운 것 하나, 맞는 게 없으면 "other"): politeRequest, nearFuture, reportedSpeech, phrasalVerb, modalSuggestion, conditionalPossibility, presentProgressive, idiomaticExpression, quantifier, letMeStructure, concessiveContrast.
+- 원문에 틀린 곳이 있으면 corrected는 반드시 원문과 달라야 합니다. 원문이 이미 맞다면 corrected는 원문 그대로 두고 errors는 빈 배열로 하세요.
 - 반드시 아래 JSON 스키마로만 응답하고, 다른 설명을 덧붙이지 마세요.
 
 {
@@ -27,7 +32,8 @@ const SYSTEM_PROMPT = `당신은 한국어가 모국어인 직장인의 "비즈�
   "natural": string,
   "structure": string,
   "tips": string[],
-  "keywordsUsed": string[]
+  "keywordsUsed": string[],
+  "errors": [{ "type": string, "wrong": string, "right": string, "note": string, "grammarKey": string }]
 }`;
 
 Deno.serve(async (req: Request) => {

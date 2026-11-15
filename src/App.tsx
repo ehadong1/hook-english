@@ -305,7 +305,7 @@ export default function App() {
           <MainTab
             profile={profile} activeSentence={activeSentence} setActiveSentence={setActiveSentence}
             history={history} onSaveWord={handleSaveWord} onSaveSentence={handleSaveSentence}
-            savedIds={savedIds} onStartCustom={handleStartCustom} savedSentences={savedSentences} onGoTab={setTab} onOpenNotes={() => setModal("notebook")} onOpenSettings={() => setModal("account")}
+            savedIds={savedIds} onStartCustom={handleStartCustom} savedSentences={savedSentences} onGoTab={setTab} onOpenNotes={() => setModal("notebook")} onOpenSettings={() => setModal("account")} deviceId={deviceId}
           />
         )}
         {tab === "training" && (activeSentence ? <TrainingTab sentence={activeSentence} voice={voice} /> : needSentence("듣기·따라 읽기 연습"))}
