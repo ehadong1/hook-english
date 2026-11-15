@@ -163,7 +163,7 @@ export async function insertWritingLog(deviceId: string | null, entry: WritingLo
     device_id: deviceId,
     original: entry.original,
     corrected: entry.corrected ?? null,
-    natural: entry.natural ?? null,
+    natural_text: entry.natural ?? null,
     errors: entry.errors,
   });
   if (error) console.warn("[Hook English] 실수 기록 저장 실패:", error.message);
@@ -173,12 +173,12 @@ export async function fetchWritingLog(deviceId: string | null, limit = 100): Pro
   if (!supabase || !deviceId) return [];
   const { data, error } = await supabase
     .from("hook_writing_log")
-    .select("id, original, corrected, natural, errors, created_at")
+    .select("id, original, corrected, natural_text, errors, created_at")
     .eq("device_id", deviceId)
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error || !data) return [];
-  return data.map((r: any) => ({ id: r.id, original: r.original, corrected: r.corrected || undefined, natural: r.natural || undefined, errors: Array.isArray(r.errors) ? r.errors : [], createdAt: r.created_at }));
+  return data.map((r: any) => ({ id: r.id, original: r.original, corrected: r.corrected || undefined, natural: r.natural_text || undefined, errors: Array.isArray(r.errors) ? r.errors : [], createdAt: r.created_at }));
 }
 
 export type PhraseBankEntry = {

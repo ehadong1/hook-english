@@ -5,7 +5,7 @@ create table if not exists public.hook_writing_log (
   device_id text not null,                 -- auth.uid()::text (다른 테이블과 같은 방식)
   original text not null,                  -- 내가 쓴 문장
   corrected text,                          -- 교정 문장
-  natural text,                            -- 더 자연스러운 표현
+  natural_text text,                       -- 더 자연스러운 표현 (natural은 SQL 예약어라 이름을 바꿨어요)
   errors jsonb not null default '[]',      -- [{type, wrong, right, note, grammarKey}]
   created_at timestamptz not null default now()
 );
