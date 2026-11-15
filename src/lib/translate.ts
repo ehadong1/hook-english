@@ -171,7 +171,9 @@ export const INTENT_FALLBACK = {
 export function describeLlmFailure(e: any): string {
   if (e?.status === 429 && e?.message) return e.message;
   if (e?.status === 401) return "로그인 연결이 불안정해 AI를 쓰지 못했어요.";
-  return "AI 연결이 불안정해 간이 번역으로 보여드려요.";
+  // 서버 오류(5xx)면 원인을 짧게 함께 보여줘서, 문제가 생겼을 때 바로 알 수 있게 합니다.
+  const detail = e?.status >= 500 && e?.message ? ` (오류 ${e.status}: ${String(e.message).slice(0, 120)})` : "";
+  return `AI 연결이 불안정해 간이 번역으로 보여드려요.${detail}`;
 }
 
 export async function translateKoreanToEnglish(koText?: string | null, profile: Record<string, any> = {}) {
