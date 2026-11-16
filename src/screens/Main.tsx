@@ -402,9 +402,10 @@ type MainTabProps = {
   onOpenNotes: () => void;
   onOpenSettings?: () => void;
   deviceId?: string | null;
+  onOpenReviews?: () => void;
 };
 
-export function MainTab({ profile, activeSentence, setActiveSentence, history, onSaveWord, onSaveSentence, savedIds, onStartCustom, savedSentences, onGoTab, onOpenNotes, deviceId }: MainTabProps) {
+export function MainTab({ profile, activeSentence, setActiveSentence, history, onSaveWord, onSaveSentence, savedIds, onStartCustom, savedSentences, onGoTab, onOpenNotes, deviceId, onOpenReviews }: MainTabProps) {
   const menuOpen = true; // 학습 메뉴는 접지 않고 항상 보여줍니다.
   // 설문에서 "주어진 문장부터"를 고른 사람은 고른 종류의 문장을 첫 화면 맨 위에 바로 보여줍니다.
   const startMode = profile.startMode === "given" ? "given" : "own";
@@ -549,7 +550,7 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
           <div data-tour="start"><ComposerBox profile={profile} onStart={onStartCustom} minimal onSubmit={() => { setMenuMode(null); setActiveSentence(null); }} /></div>
         </div>
       )}
-      <RoutineGuide savedCount={savedSentences.length} onGo={onGoTab} onOpenNotes={onOpenNotes} />
+      <RoutineGuide savedCount={savedSentences.length} onGo={onGoTab} onOpenNotes={onOpenNotes} onOpenReviews={onOpenReviews} />
       {menuOpen && (
         <>
           <div data-tour="menus" className="mt-3">

@@ -6,6 +6,7 @@ import { getDeviceId } from "./lib/deviceId";
 import { isSupabaseConfigured, ensureSessionUserId, getAuthInfo, consumeLinkConflict, supabase, type AuthInfo } from "./lib/supabaseClient";
 import { flushPendingConsent } from "./lib/consent";
 import { AccountSheet } from "./components/AccountSheet";
+import { ReviewsSheet } from "./components/ReviewSheets";
 import { installCloudTTS } from "./lib/ttsProvider";
 import { fetchRemoteState, saveProfileRemote, insertItemRemote, updateItemRemote, insertHistoryRemote } from "./lib/persistence";
 import { NotebookModal, VoiceSettings } from "./components/Modals";
@@ -62,7 +63,7 @@ export default function App() {
   }, []);
   const [activeSentence, setActiveSentence] = useState<Sentence | null>(null);
   const [toast, setToast] = useState("");
-  const [modal, setModal] = useState<"notebook" | "voice" | "account" | null>(null);
+  const [modal, setModal] = useState<"notebook" | "voice" | "account" | "reviews" | null>(null);
   const [auth, setAuth] = useState<AuthInfo | null>(null);
   const [linkConflict, setLinkConflict] = useState(false);
   const isDev = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("dev"); // ?dev=1 일 때만 개발용 도구 표시
@@ -305,7 +306,7 @@ export default function App() {
           <MainTab
             profile={profile} activeSentence={activeSentence} setActiveSentence={setActiveSentence}
             history={history} onSaveWord={handleSaveWord} onSaveSentence={handleSaveSentence}
-            savedIds={savedIds} onStartCustom={handleStartCustom} savedSentences={savedSentences} onGoTab={setTab} onOpenNotes={() => setModal("notebook")} onOpenSettings={() => setModal("account")} deviceId={deviceId}
+            savedIds={savedIds} onStartCustom={handleStartCustom} savedSentences={savedSentences} onGoTab={setTab} onOpenNotes={() => setModal("notebook")} onOpenSettings={() => setModal("account")} deviceId={deviceId} onOpenReviews={() => setModal("reviews")}
           />
         )}
         {tab === "training" && (activeSentence ? <TrainingTab sentence={activeSentence} voice={voice} /> : needSentence("듣기·따라 읽기 연습"))}
@@ -343,6 +344,7 @@ export default function App() {
       )}
       {<Tutorial startMode={profile.startMode === "given" ? "given" : "own"} />}
       {modal === "account" && <AccountSheet auth={auth} linkConflict={linkConflict} onClose={() => { setModal(null); setLinkConflict(false); }} startChoice={profile.startMode === "given" ? "given" : "own"} onChangeStart={changeStart} />}
+      {modal === "reviews" && <ReviewsSheet onClose={() => setModal(null)} loggedIn={!!auth && !auth.isAnonymous} deviceId={deviceId} savedCount={savedSentences.length} studyDays={new Set(history.map((h) => String(h.at).slice(0, 10))).size} />}
       {modal === "voice" && <VoiceSettings voices={voices} selected={voice} onSelect={setVoice} onClose={() => setModal(null)} />}
 
       <Toast message={toast} />

@@ -146,6 +146,53 @@ export async function insertHistoryRemote(deviceId: string | null, entry: Histor
   if (error) console.warn("[Hook English] 학습 이력 저장 실패:", error.message);
 }
 
+/* ---------------- 활용 후기 ---------------- */
+
+export type ReviewStats = { saved?: number; days?: number; notes?: number };
+export type ReviewEntry = { id: string; nickname?: string; body: string; stats: ReviewStats; status: string; createdAt?: string };
+
+const mapReview = (r: any): ReviewEntry => ({ id: r.id, nickname: r.nickname || undefined, body: r.body, stats: r.stats || {}, status: r.status, createdAt: r.created_at || undefined });
+
+export async function submitReview(input: { nickname: string; body: string; stats: ReviewStats }): Promise<string | null> {
+  if (!supabase) return "연결할 수 없어요.";
+  const { error } = await supabase.from("hook_reviews").insert({ nickname: input.nickname.trim() || null, body: input.body.trim(), stats: input.stats });
+  if (!error) return null;
+  if (/row-level security|violates/i.test(error.message)) return "후기를 올리지 못했어요. 로그인했는지, 하루 3개 한도를 넘지 않았는지 확인해 주세요.";
+  return "후기를 올리지 못했어요. 잠시 뒤 다시 시도해 주세요.";
+}
+
+export async function fetchApprovedReviews(limit = 30): Promise<ReviewEntry[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.from("hook_reviews").select("id, nickname, body, stats, status, created_at").eq("status", "approved").order("created_at", { ascending: false }).limit(limit);
+  return error || !data ? [] : data.map(mapReview);
+}
+
+export async function fetchMyReviews(): Promise<ReviewEntry[]> {
+  if (!supabase) return [];
+  const { data: u } = await supabase.auth.getUser();
+  if (!u?.user) return [];
+  const { data, error } = await supabase.from("hook_reviews").select("id, nickname, body, stats, status, created_at").eq("user_id", u.user.id).order("created_at", { ascending: false }).limit(10);
+  return error || !data ? [] : data.map(mapReview);
+}
+
+export async function fetchPendingReviews(): Promise<ReviewEntry[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.from("hook_reviews").select("id, nickname, body, stats, status, created_at").eq("status", "pending").order("created_at", { ascending: true }).limit(50);
+  return error || !data ? [] : data.map(mapReview);
+}
+
+export async function setReviewStatus(id: string, status: "approved" | "rejected"): Promise<boolean> {
+  if (!supabase) return false;
+  const { error } = await supabase.from("hook_reviews").update({ status }).eq("id", id);
+  return !error;
+}
+
+export async function deleteMyReview(id: string): Promise<boolean> {
+  if (!supabase) return false;
+  const { error } = await supabase.from("hook_reviews").delete().eq("id", id);
+  return !error;
+}
+
 /* ---------------- 내가 만든 문장 · 실수 기록 ---------------- */
 
 export type WritingLogEntry = {
