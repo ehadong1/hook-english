@@ -194,10 +194,14 @@ export function WritingPractice({ profile, mode, savedSentences, onClose, device
             <p className="text-sm font-semibold text-gray-900">{feedback.corrected}</p>
             <SpeakButton text={feedback.corrected} size={14} />
           </div>
-          <div className="bg-emerald-50 rounded-xl p-3">
-            <p className="text-xs font-bold text-emerald-600 mb-1">더 자연스러운 표현</p>
-            <p className="text-sm text-gray-800">{feedback.natural}</p>
-          </div>
+          {feedback.natural && feedback.natural.trim() !== String(feedback.corrected).trim() ? (
+            <div className="bg-emerald-50 rounded-xl p-3">
+              <p className="text-xs font-bold text-emerald-600 mb-1">더 자연스러운 표현</p>
+              <p className="text-sm text-gray-800">{feedback.natural}</p>
+            </div>
+          ) : (
+            <p className="text-xs bg-emerald-50 text-emerald-800 rounded-lg px-2.5 py-2">이 문장 그대로 자연스러워요.</p>
+          )}
           {Array.isArray(feedback.errors) && feedback.errors.length > 0 && (
             <div className="bg-rose-50 rounded-xl p-3">
               <p className="text-xs font-bold text-rose-700 mb-1.5">틀린 부분 {feedback.errors.length}개</p>

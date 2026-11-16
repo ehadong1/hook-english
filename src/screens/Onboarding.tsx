@@ -7,7 +7,7 @@ import type { Profile } from "../types";
 /* ============================================================================
    SECTION 8. 온보딩 (3페이지, 한 화면에 한 가지 결정)
    - 1페이지: 시작 방식 2가지(내 말부터 / 추천 문장부터)
-   - 2페이지: 업무 분야(필수, 여러 개 가능)
+   - 2페이지: 관심 분야(필수, 여러 개 가능)
    - 3페이지: 영어 수준(슬라이더, 필수) + 말투, 그리고 눈에 띄는 "더 정확히 맞추기"(상황·목적·어려운 점·학습 시간, 선택)
    상황은 문장마다 태그로 섞어 보여주고, 원하는 사람만 "더 정확히 맞추기"에서 고릅니다.
    답변 모양은 예전과 같아서(profile) 나머지 앱 로직은 그대로 동작합니다.
@@ -140,7 +140,7 @@ export function Onboarding({ onComplete }: { onComplete: (profile: Profile) => v
     Array.isArray(answers.topics) && answers.topics.length > 0,
     !!answers.level,
   ];
-  const titles = ["어떻게 시작할까요?", "어느 분야 일을 하세요?", "마지막이에요"];
+  const titles = ["어떻게 시작할까요?", "관심 있는 분야를 골라 주세요", "마지막이에요"];
   const last = page === TOTAL_PAGES - 1;
 
   return (
@@ -167,7 +167,7 @@ export function Onboarding({ onComplete }: { onComplete: (profile: Profile) => v
 
         {page === 1 && (
           <>
-            <p className="text-sm text-gray-500 mt-1">그 분야 표현을 먼저 추천해요. 여러 개 골라도 돼요.</p>
+            <p className="text-sm text-gray-500 mt-1">고른 분야의 표현을 먼저 추천해요. 여러 개 골라도 돼요.</p>
             <div className="mt-5 grid grid-cols-2 gap-2">
               {Q.topics.options.map((o) => (
                 <Chip key={o.value} title={o.desc} selected={has("topics", o.value)} onClick={() => toggle("topics", o.value)}>
