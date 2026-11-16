@@ -24,9 +24,9 @@ export function RoutineGuide({ savedCount, onOpenNotes, onOpenReviews }: { saved
           <span className="block h-full rounded-full bg-accent-500" style={{ width: `${Math.max(pct, savedCount > 0 ? 2 : 0)}%` }} />
         </span>
       </button>
-      <div className="mt-2 flex items-center justify-center gap-4 text-xs font-semibold text-gray-500">
-        <button type="button" onClick={() => window.dispatchEvent(new Event("hook-tour"))} className="underline underline-offset-2">사용법 튜토리얼 다시 보기</button>
-        {onOpenReviews && <button type="button" onClick={onOpenReviews} className="underline underline-offset-2">활용 후기</button>}
+      <div className="mt-2.5 flex gap-2">
+        <button type="button" onClick={() => window.dispatchEvent(new Event("hook-tour"))} className="flex-1 py-2.5 rounded-xl border border-gray-200 bg-white text-xs font-semibold text-gray-700 active:bg-gray-50">사용법 튜토리얼 다시 보기</button>
+        {onOpenReviews && <button type="button" onClick={onOpenReviews} className="flex-1 py-2.5 rounded-xl border border-brand-200 bg-brand-50 text-xs font-semibold text-brand-700 active:bg-brand-100">활용 후기 보기</button>}
       </div>
     </section>
   );
