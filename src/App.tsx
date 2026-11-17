@@ -340,6 +340,7 @@ export default function App() {
           onClose={() => setModal(null)}
           onMaster={markMastered}
           onSelectSentence={handleReviewFromNotebook}
+          deviceId={deviceId}
         />
       )}
       {<Tutorial startMode={profile.startMode === "given" ? "given" : "own"} />}

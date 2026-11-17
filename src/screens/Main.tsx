@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
-import { Mic, Check, X, Star, Sparkles, Languages, Loader2, Newspaper, PenLine, AudioLines, ChevronDown } from "lucide-react";
+import { Mic, Check, X, Star, Sparkles, Languages, Loader2, Newspaper, PenLine, AudioLines } from "lucide-react";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 import { fetchLatestPhrases, fetchNewsSentences, fetchWritingLog, insertWritingLog, type PhraseBankEntry, type WritingLogEntry } from "../lib/persistence";
 import { SpeakButton } from "../components/common";
@@ -66,45 +66,6 @@ export async function analyzeUserWriting(text: string, profile: Profile, mode = 
     source: "fallback",
     notice,
   };
-}
-
-/** 내가 만든 문장과 틀린 부분을 다시 보고, 같은 문장을 다시 써볼 수 있는 "실수 노트" */
-function MistakeNote({ log, onRetry }: { log: WritingLogEntry[]; onRetry: (text: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const withErrors = log.filter((l) => l.errors.length > 0);
-  const typeCount: Record<string, number> = {};
-  log.forEach((l) => l.errors.forEach((e) => { typeCount[e.type] = (typeCount[e.type] || 0) + 1; }));
-  const top = Object.entries(typeCount).sort((a, b) => b[1] - a[1]).slice(0, 3);
-  if (!log.length) {
-    return <p className="mt-2 text-[11px] text-gray-500 px-1">문장을 만들어 보면 틀린 부분이 여기 쌓여요. 자주 틀리는 유형은 추천 문장에도 반영돼요.</p>;
-  }
-  return (
-    <div className="mt-2 rounded-2xl border border-rose-100 bg-rose-50/60 p-3">
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="w-full flex items-center justify-between text-left">
-        <span>
-          <span className="block text-sm font-extrabold text-rose-800">내 실수 노트 <span className="text-xs font-semibold">· 만든 문장 {log.length}개, 틀린 문장 {withErrors.length}개</span></span>
-          {top.length > 0 && <span className="block text-[11px] text-rose-700 mt-0.5">자주 틀리는 유형: {top.map(([t, n]) => `${t} ${n}번`).join(" · ")} (추천 문장에 반영돼요)</span>}
-        </span>
-        <ChevronDown size={16} className={`text-rose-700 transition ${open ? "rotate-180" : ""}`} />
-      </button>
-      {open && (
-        <ul className="mt-2.5 space-y-2">
-          {log.slice(0, 15).map((l, i) => (
-            <li key={l.id || i} className="bg-white rounded-xl p-2.5 text-xs">
-              <p className="text-gray-500">내가 쓴 문장</p>
-              <p className="text-sm font-semibold text-gray-900">{l.original}</p>
-              {l.corrected && l.corrected !== l.original && <p className="mt-1 text-emerald-800"><b>교정</b> · {l.corrected}</p>}
-              {l.errors.map((e, j) => (
-                <p key={j} className="mt-0.5 text-rose-900"><b>[{e.type}]</b> <span className="line-through opacity-70">{e.wrong}</span> → <b>{e.right}</b>{e.note ? ` · ${e.note}` : ""}</p>
-              ))}
-              {l.errors.length === 0 && <p className="mt-0.5 text-emerald-700">틀린 곳 없음</p>}
-              <button type="button" onClick={() => onRetry(l.original)} className="mt-1.5 text-[11px] font-semibold text-brand-700 underline underline-offset-2">이 문장 다시 써보기</button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
 }
 
 export function WritingPractice({ profile, mode, savedSentences, onClose, deviceId, onLogged, onSpeak, retryText }: { profile: Profile; mode: string; savedSentences: StoreItem[]; onClose: () => void; deviceId?: string | null; onLogged?: (e: WritingLogEntry) => void; onSpeak?: (english: string) => void; retryText?: string }) {
@@ -468,6 +429,12 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
   const weaknesses = profile.weaknesses || [profile.weakness].filter(Boolean);
   const autoOpen = weaknesses.includes("문법") || weaknesses.includes("문장 구성");
   const openMenu = (mode: string) => { setMenuMode(mode); };
+  // 나만의 영어노트의 "이 문장 다시 써보기" → 문장 만들기 열기
+  useEffect(() => {
+    const h = (e: Event) => { const t = (e as CustomEvent<string>).detail; if (t) { setRetryText(t); setMenuMode("compose"); } };
+    window.addEventListener("hook-retry", h);
+    return () => window.removeEventListener("hook-retry", h);
+  }, []);
   // 어디서 누르든 같은 말하기 연습(하단 말하기 탭)으로 이동합니다. 방금 만든 문장이 있으면 그 문장으로 시작해요.
   const speakPractice = (english: string | null) => {
     if (english) onStartCustom(english, null);
@@ -566,7 +533,6 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
               <button onClick={() => { setRetryText(undefined); openMenu("compose"); }} className="p-3 rounded-2xl bg-emerald-50 border border-emerald-100 text-left"><PenLine size={16} className="text-emerald-600 mb-1" /><p className="text-xs font-bold text-emerald-800">문장 만들어 보기</p><p className="text-[11px] text-gray-500 mt-0.5">누르면 상황이 나와요 · 쓰면 AI가 첨삭</p></button>
               <button onClick={() => speakPractice(lastMade)} className="p-3 rounded-2xl bg-amber-50 border border-amber-100 text-left"><AudioLines size={16} className="text-amber-600 mb-1" /><p className="text-xs font-bold text-amber-800">말하기</p><p className="text-[11px] text-gray-500 mt-0.5">누르면 말하기 연습으로 이동해요</p></button>
             </div>
-            <MistakeNote log={writingLog} onRetry={(t) => { setRetryText(t); openMenu("compose"); }} />
           </div>
           {startMode !== "given" && listSection}
           {menuMode === "compose" && (

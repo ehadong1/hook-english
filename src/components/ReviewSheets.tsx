@@ -15,7 +15,7 @@ import {
 } from "../lib/persistence";
 
 /* ============================================================================
-   활용 후기: 내 사용 기록(저장 문장·학습한 날·실수 노트) + 한줄 후기
+   활용 후기: 내 사용 기록(저장 문장·학습한 날·만든 문장) + 한줄 후기
    - 후기는 항상 "검토 대기"로 저장되고, 운영자가 승인해야 다른 사람에게 보여요.
    - 사용 기록 숫자는 작성할 때 앱이 계산해 함께 저장해요. (보상 없음, 대가 표시 불필요)
    ============================================================================ */
@@ -26,7 +26,7 @@ function StatChips({ s }: { s: ReviewStats }) {
   const items = [
     s.saved != null ? `저장 ${s.saved}문장` : null,
     s.days != null ? `${s.days}일 학습` : null,
-    s.notes ? `실수 노트 ${s.notes}개` : null,
+    s.notes ? `만든 문장 ${s.notes}개` : null,
   ].filter(Boolean) as string[];
   if (!items.length) return null;
   return (
@@ -81,7 +81,7 @@ export function ReviewsSheet({ onClose, loggedIn, deviceId, savedCount, studyDay
       <div className="rounded-xl bg-brand-50 p-3">
         <p className="text-xs font-bold text-brand-700">나의 활용 기록</p>
         <StatChips s={stats} />
-        <p className="text-[11px] text-gray-500 mt-1.5">저장한 문장 수, 학습한 날 수, 실수 노트에 쌓인 문장 수예요.</p>
+        <p className="text-[11px] text-gray-500 mt-1.5">저장한 문장 수, 학습한 날 수, 내가 만든 문장 수예요.</p>
       </div>
 
       <h4 className="text-sm font-extrabold text-gray-900 mt-5">다른 학습자의 활용 사례</h4>

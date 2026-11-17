@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import { Check, Notebook } from "lucide-react";
+import { fetchWritingLog, type WritingLogEntry } from "../lib/persistence";
 import { BottomSheet, SpeakButton } from "./common";
 import { hasNeuralProvider } from "../lib/speech";
 import type { HistoryItem, StoreItem } from "../types";
@@ -14,9 +16,16 @@ type NotebookProps = {
   onClose: () => void;
   onMaster: (id: string) => void;
   onSelectSentence: (item: StoreItem) => void;
+  deviceId?: string | null;
 };
 
-export function NotebookModal({ sentences, words, history, onClose, onMaster, onSelectSentence }: NotebookProps) {
+export function NotebookModal({ sentences, words, history, onClose, onMaster, onSelectSentence, deviceId }: NotebookProps) {
+  const [log, setLog] = useState<WritingLogEntry[]>([]);
+  useEffect(() => { fetchWritingLog(deviceId ?? null, 50).then(setLog).catch(() => { /* 기록 없음 */ }); }, [deviceId]);
+  const typeCount: Record<string, number> = {};
+  log.forEach((l) => l.errors.forEach((e) => { typeCount[e.type] = (typeCount[e.type] || 0) + 1; }));
+  const top = Object.entries(typeCount).sort((x, y) => y[1] - x[1]).slice(0, 3);
+  const retry = (t: string) => { onClose(); window.dispatchEvent(new CustomEvent("hook-retry", { detail: t })); };
   const total = sentences.length + words.length;
   const mastered = [...sentences, ...words].filter((i) => i.mastered).length;
   const studiedIds = new Set(history.map((h) => h.sentenceId));
@@ -61,6 +70,26 @@ export function NotebookModal({ sentences, words, history, onClose, onMaster, on
       <p className="text-xs font-bold text-gray-400 mb-2">저장한 단어 ({words.length})</p>
       {words.length === 0 ? <p className="text-xs text-gray-400">아직 저장한 단어가 없어요.</p> : (
         <div className="space-y-3">{words.map((w) => renderEntry(w, "word"))}</div>
+      )}
+
+      <p className="text-xs font-bold text-gray-400 mt-5 mb-2">내가 만든 문장 · 실수 ({log.length})</p>
+      {log.length === 0 ? <p className="text-xs text-gray-400">문장을 만들어 보면 틀린 부분이 여기 쌓여요. 자주 틀리는 유형은 추천 문장에도 반영돼요.</p> : (
+        <>
+          {top.length > 0 && <p className="text-[11px] text-rose-700 mb-2">자주 틀리는 유형: {top.map(([t, n]) => `${t} ${n}번`).join(" · ")} (추천 문장에 반영돼요)</p>}
+          <div className="space-y-3">
+            {log.slice(0, 20).map((l, i) => (
+              <div key={l.id || i} className="bg-[#fffef8] border border-rose-200/80 rounded-lg px-4 py-3 shadow-sm text-xs">
+                <p className="text-sm font-semibold text-gray-900 break-words">{l.original}</p>
+                {l.corrected && l.corrected !== l.original && <p className="mt-1 text-emerald-800"><b>교정</b> · {l.corrected}</p>}
+                {l.errors.map((e, j) => (
+                  <p key={j} className="mt-0.5 text-rose-900"><b>[{e.type}]</b> <span className="line-through opacity-70">{e.wrong}</span> → <b>{e.right}</b>{e.note ? ` · ${e.note}` : ""}</p>
+                ))}
+                {l.errors.length === 0 && <p className="mt-0.5 text-emerald-700">틀린 곳 없음</p>}
+                <button type="button" onClick={() => retry(l.original)} className="mt-1.5 text-[11px] font-semibold text-brand-700 underline underline-offset-2">이 문장 다시 써보기</button>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </BottomSheet>
   );
