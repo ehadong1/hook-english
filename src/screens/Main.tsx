@@ -110,7 +110,7 @@ export function WritingPractice({ profile, mode, savedSentences, onClose, device
   };
 
   return (
-    <div className="mt-4 bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+    <div id="compose-anchor" className="mt-4 bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
       <div className="flex justify-between items-start mb-2">
         <div>
           <p className="text-sm font-bold text-gray-900">{mode === "diary" ? "오늘의 일기 쓰기" : "문장 만들어 보기"}</p>
@@ -364,9 +364,10 @@ type MainTabProps = {
   onOpenSettings?: () => void;
   deviceId?: string | null;
   onOpenReviews?: () => void;
+  retryRequest?: { text: string; n: number } | null;
 };
 
-export function MainTab({ profile, activeSentence, setActiveSentence, history, onSaveWord, onSaveSentence, savedIds, onStartCustom, savedSentences, onGoTab, onOpenNotes, deviceId, onOpenReviews }: MainTabProps) {
+export function MainTab({ profile, activeSentence, setActiveSentence, history, onSaveWord, onSaveSentence, savedIds, onStartCustom, savedSentences, onGoTab, onOpenNotes, deviceId, onOpenReviews, retryRequest }: MainTabProps) {
   const menuOpen = true; // 학습 메뉴는 접지 않고 항상 보여줍니다.
   // 설문에서 "주어진 문장부터"를 고른 사람은 고른 종류의 문장을 첫 화면 맨 위에 바로 보여줍니다.
   const startMode = profile.startMode === "given" ? "given" : "own";
@@ -429,12 +430,14 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
   const weaknesses = profile.weaknesses || [profile.weakness].filter(Boolean);
   const autoOpen = weaknesses.includes("문법") || weaknesses.includes("문장 구성");
   const openMenu = (mode: string) => { setMenuMode(mode); };
-  // 나만의 영어노트의 "이 문장 다시 써보기" → 문장 만들기 열기
+  // 나만의 영어노트의 "이 문장 다시 써보기" → 문장 만들기를 열고 그 위치로 스크롤
   useEffect(() => {
-    const h = (e: Event) => { const t = (e as CustomEvent<string>).detail; if (t) { setRetryText(t); setMenuMode("compose"); } };
-    window.addEventListener("hook-retry", h);
-    return () => window.removeEventListener("hook-retry", h);
-  }, []);
+    if (!retryRequest) return;
+    setRetryText(retryRequest.text);
+    setMenuMode("compose");
+    const t = setTimeout(() => document.getElementById("compose-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
+    return () => clearTimeout(t);
+  }, [retryRequest]);
   // 어디서 누르든 같은 말하기 연습(하단 말하기 탭)으로 이동합니다. 방금 만든 문장이 있으면 그 문장으로 시작해요.
   const speakPractice = (english: string | null) => {
     if (english) onStartCustom(english, null);

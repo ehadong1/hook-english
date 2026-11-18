@@ -63,6 +63,12 @@ export default function App() {
   }, []);
   const [activeSentence, setActiveSentence] = useState<Sentence | null>(null);
   const [toast, setToast] = useState("");
+  const [retryRequest, setRetryRequest] = useState<{ text: string; n: number } | null>(null);
+  useEffect(() => {
+    const h = (e: Event) => { const t = (e as CustomEvent<string>).detail; if (t) { setTab("main"); setRetryRequest((r) => ({ text: t, n: (r?.n ?? 0) + 1 })); } };
+    window.addEventListener("hook-retry", h);
+    return () => window.removeEventListener("hook-retry", h);
+  }, []);
   const [modal, setModal] = useState<"notebook" | "voice" | "account" | "reviews" | null>(null);
   const [auth, setAuth] = useState<AuthInfo | null>(null);
   const [linkConflict, setLinkConflict] = useState(false);
@@ -306,7 +312,7 @@ export default function App() {
           <MainTab
             profile={profile} activeSentence={activeSentence} setActiveSentence={setActiveSentence}
             history={history} onSaveWord={handleSaveWord} onSaveSentence={handleSaveSentence}
-            savedIds={savedIds} onStartCustom={handleStartCustom} savedSentences={savedSentences} onGoTab={setTab} onOpenNotes={() => setModal("notebook")} onOpenSettings={() => setModal("account")} deviceId={deviceId} onOpenReviews={() => setModal("reviews")}
+            savedIds={savedIds} onStartCustom={handleStartCustom} savedSentences={savedSentences} onGoTab={setTab} onOpenNotes={() => setModal("notebook")} onOpenSettings={() => setModal("account")} deviceId={deviceId} onOpenReviews={() => setModal("reviews")} retryRequest={retryRequest}
           />
         )}
         {tab === "training" && (activeSentence ? <TrainingTab sentence={activeSentence} voice={voice} /> : needSentence("듣기·따라 읽기 연습"))}
