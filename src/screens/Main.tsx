@@ -533,7 +533,7 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
           <div className="mt-3">
             <p className="text-sm font-extrabold" style={{ color: "#8a6420" }}>연습하기 <span className="font-medium text-xs text-gray-500">· 내 말로 써보고, 말해봐요</span></p>
             <div className="grid grid-cols-2 gap-2 mt-1.5">
-              <button onClick={() => { setRetryText(undefined); openMenu("compose"); }} className="p-3 rounded-2xl bg-emerald-50 border border-emerald-100 text-left"><PenLine size={16} className="text-emerald-600 mb-1" /><p className="text-xs font-bold text-emerald-800">문장 만들어 보기</p><p className="text-[11px] text-gray-500 mt-0.5">누르면 상황이 나와요 · 쓰면 AI가 첨삭</p></button>
+              <button onClick={() => { setRetryText(undefined); openMenu("compose"); }} className="p-3 rounded-2xl bg-emerald-50 border border-emerald-100 text-left"><PenLine size={16} className="text-emerald-600 mb-1" /><p className="text-xs font-bold text-emerald-800">문장 만들어 보기</p><p className="text-[11px] text-gray-500 mt-0.5">누르면 상황이 나와요 · 쓰면 바로 교정해 줘요</p></button>
               <button onClick={() => speakPractice(lastMade)} className="p-3 rounded-2xl bg-amber-50 border border-amber-100 text-left"><AudioLines size={16} className="text-amber-600 mb-1" /><p className="text-xs font-bold text-amber-800">말하기</p><p className="text-[11px] text-gray-500 mt-0.5">누르면 말하기 연습으로 이동해요</p></button>
             </div>
           </div>
