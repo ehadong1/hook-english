@@ -63,7 +63,7 @@ export function getNewsSentences(profile: Profile) {
  * - 같은 수준이 가장 먼저, 한 단계 쉬운 수준은 그다음, 너무 어렵거나 쉬운 문장은 맨 뒤로 보냅니다.
  * - 점수가 같으면 가져온 순서(최신순)를 그대로 유지합니다.
  */
-export function rankNewsForProfile<T extends { level?: string; situations?: string[]; tone?: string }>(rows: T[], profile: Profile | null): T[] {
+export function rankNewsForProfile<T extends { level?: string; situations?: string[]; tone?: string; fieldTag?: string }>(rows: T[], profile: Profile | null): T[] {
   if (!profile) return rows;
   const legacyLevel = profile.level || LEVEL_TO_LEGACY[profile.levelCode] || "기초 회화";
   const scored = rows.map((s, idx) => {
@@ -74,10 +74,20 @@ export function rankNewsForProfile<T extends { level?: string; situations?: stri
     else score -= 40;
     if (s.situations?.includes(profile.situation)) score += 30;
     if (s.tone === profile.tone) score += 20;
+    if (s.fieldTag && (profile.topics || []).includes(s.fieldTag)) score += 60;
     return { s, score, idx };
   });
   scored.sort((a, b) => b.score - a.score || a.idx - b.idx);
   return scored.map((x) => x.s);
+}
+
+/** 순위가 높은 후보들 중에서 날짜마다 다른 3개를 골라 매일 다른 문장이 나오게 합니다. */
+export function pickNewsForToday<T>(ranked: T[], count = 3, pool = 15): T[] {
+  const top = ranked.slice(0, pool);
+  if (top.length <= count) return top;
+  const day = Math.floor(Date.now() / 86400000);
+  const start = (day * count) % top.length;
+  return Array.from({ length: count }, (_, k) => top[(start + k) % top.length]);
 }
 
 const TONE_EN_TO_KO: Record<string, string> = { formal: "정중한 비즈니스", neutral: "중립 실무", casual: "캐주얼 친근" };

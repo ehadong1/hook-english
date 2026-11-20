@@ -7,6 +7,7 @@ import { isSupabaseConfigured, ensureSessionUserId, getAuthInfo, consumeLinkConf
 import { flushPendingConsent } from "./lib/consent";
 import { AccountSheet } from "./components/AccountSheet";
 import { ReviewsSheet } from "./components/ReviewSheets";
+import { DailyPopup } from "./components/DailyPopup";
 import { installCloudTTS } from "./lib/ttsProvider";
 import { fetchRemoteState, saveProfileRemote, insertItemRemote, updateItemRemote, insertHistoryRemote } from "./lib/persistence";
 import { NotebookModal, VoiceSettings } from "./components/Modals";
@@ -349,6 +350,7 @@ export default function App() {
           deviceId={deviceId}
         />
       )}
+      <DailyPopup enabled={!modal} onOpen={(m) => { setTab("main"); setTimeout(() => window.dispatchEvent(new CustomEvent("hook-open-menu", { detail: m })), 100); }} />
       {<Tutorial startMode={profile.startMode === "given" ? "given" : "own"} />}
       {modal === "account" && <AccountSheet auth={auth} linkConflict={linkConflict} onClose={() => { setModal(null); setLinkConflict(false); }} startChoice={profile.startMode === "given" ? "given" : "own"} onChangeStart={changeStart} />}
       {modal === "reviews" && <ReviewsSheet onClose={() => setModal(null)} loggedIn={!!auth && !auth.isAnonymous} deviceId={deviceId} savedCount={savedSentences.length} studyDays={new Set(history.map((h) => String(h.at).slice(0, 10))).size} />}

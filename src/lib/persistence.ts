@@ -36,6 +36,7 @@ export type NewsSentence = {
   id: string;
   level: string;
   topic: string;
+  fieldTag?: string;
   tone: string;
   situations: string[];
   text: string;
@@ -410,26 +411,14 @@ export async function fetchPhraseBank(grammarKeys: string[], limit = 3): Promise
  * Supabase가 설정되지 않았으면 빈 배열을 반환하고, 호출 쪽(App.tsx)이 기존
  * SENTENCE_BANK의 정적 뉴스 문장으로 자동 대체합니다.
  */
-export async function fetchNewsSentences(bankTopics: string[]): Promise<NewsSentence[]> {
-  if (!supabase || bankTopics.length === 0) return [];
+export async function fetchNewsSentences(bankTopics: string[], fields: string[] = []): Promise<NewsSentence[]> {
+  if (!supabase || (bankTopics.length === 0 && fields.length === 0)) return [];
 
-  const { data, error } = await supabase
-    .from("hook_news_sentences")
-    .select("*")
-    .eq("status", "approved")
-    .in("topic", bankTopics)
-    .order("published_date", { ascending: false })
-    .limit(40); // 넉넉히 가져온 뒤 앱에서 수준에 맞게 골라요
-
-  if (error || !data) {
-    if (error) console.warn("[Hook English] 뉴스 문장 로드 실패:", error.message);
-    return [];
-  }
-
-  return data.map((row: any) => ({
+  const map = (row: any): NewsSentence => ({
     id: row.id,
     level: row.level,
     topic: row.topic,
+    fieldTag: row.field_tag || undefined,
     tone: row.tone,
     situations: row.situations || [],
     text: row.text,
@@ -439,5 +428,34 @@ export async function fetchNewsSentences(bankTopics: string[]): Promise<NewsSent
     nativeAlternatives: row.native_alternatives || [],
     sourceUrl: row.source_url || undefined,
     isNews: true as const,
-  }));
+  });
+
+  // 1) 내가 고른 업무 분야에 딱 맞는 문장(field_tag)을 먼저, 2) 부족하면 예전 큰 분류(topic)로 보충
+  let rows: NewsSentence[] = [];
+  if (fields.length) {
+    const { data, error } = await supabase
+      .from("hook_news_sentences")
+      .select("*")
+      .eq("status", "approved")
+      .in("field_tag", fields)
+      .order("published_date", { ascending: false })
+      .limit(120);
+    if (!error && data) rows = data.map(map);
+    // field_tag 열이 아직 없으면(SQL 미실행) error가 나므로 아래 보충으로 넘어갑니다.
+  }
+  if (rows.length < 12 && bankTopics.length) {
+    const { data, error } = await supabase
+      .from("hook_news_sentences")
+      .select("*")
+      .eq("status", "approved")
+      .in("topic", bankTopics)
+      .order("published_date", { ascending: false })
+      .limit(40);
+    if (error) console.warn("[Hook English] 뉴스 문장 로드 실패:", error.message);
+    else if (data) {
+      const have = new Set(rows.map((r) => r.id));
+      rows = rows.concat(data.map(map).filter((r) => !have.has(r.id)));
+    }
+  }
+  return rows;
 }

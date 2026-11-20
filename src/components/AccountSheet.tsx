@@ -4,7 +4,7 @@ import { disablePush, enablePush, getPushState, type PushState } from "../lib/pu
 import { isPhraseAdmin } from "../lib/persistence";
 import { ReviewPhrasesSheet, SubmitPhraseSheet } from "./PhraseSheets";
 import { BottomSheet } from "./common";
-import { linkGoogleAccount, signInWithGoogle, signOutUser, isSupabaseConfigured, type AuthInfo } from "../lib/supabaseClient";
+import { deleteMyAccount, linkGoogleAccount, signInWithGoogle, signOutUser, isSupabaseConfigured, type AuthInfo } from "../lib/supabaseClient";
 import { legalUrl, markConsentPending } from "../lib/consent";
 
 /* ============================================================================
@@ -46,6 +46,41 @@ function StartSection({ value, onChange }: { value: string; onChange: (v: string
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** 회원 탈퇴 (모든 기록과 계정 삭제). 실수로 누르지 않도록 "탈퇴"를 직접 입력해야 해요. */
+function DeleteSection({ label }: { label: string }) {
+  const [open, setOpen] = useState(false);
+  const [word, setWord] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const run = async () => {
+    setBusy(true); setErr("");
+    const e = await deleteMyAccount();
+    if (e) { setErr(e); setBusy(false); return; }
+    try { localStorage.clear(); } catch { /* 무시 */ }
+    window.location.reload();
+  };
+  return (
+    <div className="mt-6 border-t border-gray-100 pt-4">
+      {!open ? (
+        <button type="button" onClick={() => setOpen(true)} className="w-full text-xs text-gray-500 underline">{label}</button>
+      ) : (
+        <div className="rounded-xl bg-rose-50 p-3.5">
+          <p className="text-sm font-bold text-rose-800">{label}</p>
+          <p className="text-xs text-rose-900 mt-1 leading-relaxed">저장한 문장·단어, 학습 기록, 만든 문장 기록, 후기, 복습 알림, 로그인 계정이 모두 삭제되고 되돌릴 수 없어요. 계속하려면 아래에 <b>탈퇴</b>라고 입력해 주세요.</p>
+          <input value={word} onChange={(e) => setWord(e.target.value)} placeholder="탈퇴" className="w-full mt-2 rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm" />
+          <div className="grid grid-cols-2 gap-2 mt-2.5">
+            <button type="button" onClick={() => { setOpen(false); setWord(""); setErr(""); }} disabled={busy} className="py-2.5 rounded-lg bg-white border border-gray-200 text-sm font-semibold text-gray-700">취소</button>
+            <button type="button" onClick={run} disabled={word.trim() !== "탈퇴" || busy} className="py-2.5 rounded-lg bg-rose-600 text-white text-sm font-semibold disabled:opacity-40 flex items-center justify-center gap-1.5">
+              {busy && <Loader2 size={14} className="animate-spin" />}삭제하기
+            </button>
+          </div>
+          {err && <p className="text-xs text-rose-700 mt-2">{err}</p>}
+        </div>
+      )}
     </div>
   );
 }
@@ -181,6 +216,7 @@ export function AccountSheet({ auth, linkConflict, onClose, startChoice, onChang
         <button type="button" onClick={logout} disabled={busy} className="w-full mt-5 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 disabled:opacity-60">
           {busy ? "처리 중..." : "로그아웃"}
         </button>
+        <DeleteSection label="회원 탈퇴 (내 기록과 계정 모두 삭제)" />
         <p className="text-xs text-gray-500 mt-4 text-center">
           <a href={legalUrl("terms")} target="_blank" rel="noopener noreferrer" className="underline">이용약관</a>
           <span className="mx-2">·</span>
@@ -231,6 +267,7 @@ export function AccountSheet({ auth, linkConflict, onClose, startChoice, onChang
       )}
       <StartSection value={startChoice} onChange={onChangeStart} />
       <PushSection />
+      <DeleteSection label="이 기기에 저장된 내 기록 모두 삭제" />
     </BottomSheet>
   );
 }

@@ -97,3 +97,12 @@ if (!isSupabaseConfigured && typeof window !== "undefined") {
       ".env 파일을 확인하세요."
   );
 }
+
+/** 회원 탈퇴: 서버가 내 기록과 계정을 모두 지웁니다. 실패하면 안내 문구를, 성공하면 null을 돌려줍니다. */
+export async function deleteMyAccount(): Promise<string | null> {
+  if (!supabase) return "서버에 연결할 수 없어요.";
+  const { error } = await supabase.functions.invoke("delete-account", { body: {} });
+  if (error) return "탈퇴를 처리하지 못했어요. 잠시 뒤 다시 시도해 주세요.";
+  try { await supabase.auth.signOut(); } catch { /* 이미 계정이 없어도 괜찮아요 */ }
+  return null;
+}

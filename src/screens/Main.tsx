@@ -4,7 +4,8 @@ import { isSupabaseConfigured } from "../lib/supabaseClient";
 import { fetchLatestPhrases, fetchNewsSentences, fetchWritingLog, insertWritingLog, type PhraseBankEntry, type WritingLogEntry } from "../lib/persistence";
 import { SpeakButton } from "../components/common";
 import { TOPIC_TO_BANK } from "../data/survey";
-import { getNewsSentences, buildRecommended, rankNewsForProfile, getRoleplayScene } from "../lib/personalization";
+import { rememberMenu } from "../components/DailyPopup";
+import { getNewsSentences, buildRecommended, rankNewsForProfile, pickNewsForToday, getRoleplayScene } from "../lib/personalization";
 import { createRecognizer, isSTTSupported } from "../lib/speech";
 import type { HistoryItem, Profile, Sentence, StoreItem } from "../types";
 import { containsKorean, describeLlmFailure, translateKoreanToEnglish, writingFeedbackProvider } from "../lib/translate";
@@ -417,8 +418,8 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
     let cancelled = false;
     (async () => {
       try {
-        const remote = await fetchNewsSentences(bankTopics.length ? bankTopics : ["최신 시사 및 뉴스"]);
-        if (!cancelled && remote.length) setNewsSentences(rankNewsForProfile(remote, profile).slice(0, 3));
+        const remote = await fetchNewsSentences(bankTopics.length ? bankTopics : ["최신 시사 및 뉴스"], profile.topics || []);
+        if (!cancelled && remote.length) setNewsSentences(pickNewsForToday(rankNewsForProfile(remote, profile), 3));
       } catch {
         /* 폴백(정적 문장) 유지 */
       }
@@ -429,7 +430,19 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
 
   const weaknesses = profile.weaknesses || [profile.weakness].filter(Boolean);
   const autoOpen = weaknesses.includes("문법") || weaknesses.includes("문장 구성");
-  const openMenu = (mode: string) => { setMenuMode(mode); };
+  const openMenu = (mode: string) => { rememberMenu(mode); setMenuMode(mode); };
+  // 하루 팝업의 "확인하기" → 해당 메뉴를 열고 그 위치로 이동
+  useEffect(() => {
+    const h = (e: Event) => {
+      const m = (e as CustomEvent<string>).detail;
+      if (m !== "news" && m !== "recommended") return;
+      rememberMenu(m);
+      setMenuMode(m);
+      setTimeout(() => document.getElementById("menu-list-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" }), 200);
+    };
+    window.addEventListener("hook-open-menu", h);
+    return () => window.removeEventListener("hook-open-menu", h);
+  }, []);
   // 나만의 영어노트의 "이 문장 다시 써보기" → 문장 만들기를 열고 그 위치로 스크롤
   useEffect(() => {
     if (!retryRequest) return;
@@ -487,8 +500,8 @@ export function MainTab({ profile, activeSentence, setActiveSentence, history, o
 
   const listSection = (
     <>
-      {menuMode === "recommended" && <div className="mt-4"><div className="flex items-center justify-between mb-2"><p className="text-xs font-bold text-gray-500">내 설문(수준·업무 분야·말투)에 맞춘 추천 {recommended.length}문장</p><button type="button" onClick={() => { setActiveSentence(null); setShuffle((n) => n + 1); }} className="text-xs font-semibold text-brand-700 bg-white border border-brand-200 rounded-full px-2.5 py-1">다른 문장 보기</button></div><SentenceList sentences={recommended} activeId={activeSentence?.id} onSelect={setActiveSentence} renderDetail={activeCard} /></div>}
-      {menuMode === "news" && <div className="mt-4"><p className="text-xs font-bold text-gray-500 mb-2">내가 고른 업무 분야의 최신 뉴스 기반 {newsSentences.length}문장</p><SentenceList sentences={newsSentences} activeId={activeSentence?.id} onSelect={setActiveSentence} badge="NEWS" renderDetail={activeCard} /></div>}
+      {menuMode === "recommended" && <div id="menu-list-anchor" className="mt-4"><div className="flex items-center justify-between mb-2"><p className="text-xs font-bold text-gray-500">내 설문(수준·업무 분야·말투)에 맞춘 추천 {recommended.length}문장</p><button type="button" onClick={() => { setActiveSentence(null); setShuffle((n) => n + 1); }} className="text-xs font-semibold text-brand-700 bg-white border border-brand-200 rounded-full px-2.5 py-1">다른 문장 보기</button></div><SentenceList sentences={recommended} activeId={activeSentence?.id} onSelect={setActiveSentence} renderDetail={activeCard} /></div>}
+      {menuMode === "news" && <div id="menu-list-anchor" className="mt-4"><p className="text-xs font-bold text-gray-500 mb-2">내가 고른 업무 분야의 최신 뉴스 기반 {newsSentences.length}문장</p><SentenceList sentences={newsSentences} activeId={activeSentence?.id} onSelect={setActiveSentence} badge="NEWS" renderDetail={activeCard} /></div>}
     </>
   );
 

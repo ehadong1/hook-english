@@ -4,11 +4,19 @@ on:
   schedule:
     # 매일 06:00 UTC = 한국시간 오후 3:00
     - cron: "0 6 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "daily(하루 20개) 또는 bulk(대량 채우기)"
+        default: "daily"
+      round:
+        description: "bulk를 또 돌릴 때 0, 1, 2 ... (다른 검색 각도 사용)"
+        default: "0"
 
 jobs:
   collect:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -24,4 +32,6 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEWS_MODE: ${{ github.event.inputs.mode || 'daily' }}
+          NEWS_BULK_ROUND: ${{ github.event.inputs.round || '0' }}
         run: python news_sentence_builder.py
