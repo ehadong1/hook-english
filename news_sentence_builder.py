@@ -87,6 +87,13 @@ ANGLES = [
 # 수준별 최대 단어 수 (phrase_generator.py와 같은 기준)
 LEVEL_MAX_WORDS = {"왕초보": 9, "기초 회화": 15, "중상급": 22}
 
+STATS: dict = {}
+
+
+def bump(k: str, n: int = 1):
+    STATS[k] = STATS.get(k, 0) + n
+
+
 DAILY_TARGET = int(os.getenv("NEWS_DAILY_TARGET", "20"))     # 하루 목표 승인 문장 수
 DAILY_FIELDS = int(os.getenv("NEWS_DAILY_FIELDS", "8"))      # 하루에 돌아가며 다룰 분야 수
 MODE = os.getenv("NEWS_MODE", "daily")                        # daily | bulk
@@ -176,10 +183,10 @@ VERIFIER_SYSTEM_PROMPT = """당신은 영어 학습 콘텐츠를 검수하는 �
 - 학습자가 직장에서 말하거나 쓰는 데 거의 쓸 일이 없는 내용
 
 JSON으로만 응답하세요:
-{"score": 1~5 정수, "translation_ok": true/false, "level_fit": 표시된 수준에 어휘·구조 난이도가 맞으면 true, "belongs_to_field": 주어진 업무 분야 직장인에게 실제로 관련 있으면 true, "reason": "한 줄 이유(한글)"}"""
+{"score": 1~5 정수, "translation_ok": true/false, "level_fit": 표시된 수준에 어휘·구조 난이도가 맞으면 true, "best_level": 이 문장에 가장 맞는 수준("왕초보"/"기초 회화"/"중상급" 중 하나), "belongs_to_field": 주어진 업무 분야 직장인에게 실제로 관련 있으면 true, "reason": "한 줄 이유(한글)"}"""
 
 
-def exa_search(query: str, num_results: int = 4) -> list[dict]:
+def exa_search(query: str, num_results: int = 8) -> list[dict]:
     since = (datetime.now(timezone.utc) - timedelta(days=RECENT_DAYS)).strftime("%Y-%m-%dT00:00:00.000Z")
     resp = requests.post(
         "https://api.exa.ai/search",
@@ -189,7 +196,7 @@ def exa_search(query: str, num_results: int = 4) -> list[dict]:
             "numResults": num_results,
             "category": "news",
             "startPublishedDate": since,
-            "contents": {"text": {"maxCharacters": 2500}},
+            "contents": {"text": {"maxCharacters": 3500}},
         },
         timeout=40,
     )
@@ -270,8 +277,11 @@ def process_field(field: str, query: str, count: int, level_plan: str, seen: set
         print(f"  ❌ Exa 검색 실패: {e}")
         return 0, 0
     print(f"  → 기사 {len(results)}개")
+    bump("검색")
+    bump("기사", len(results))
     items = extract_with_gpt(field, results, count, level_plan)
     print(f"  → 후보 {len(items)}개")
+    bump("후보", len(items))
     inserted = approved = 0
     for item in items:
         text = (item.get("text") or "").strip()
@@ -281,6 +291,7 @@ def process_field(field: str, query: str, count: int, level_plan: str, seen: set
         key = norm(text)
         if key in seen:
             print(f"  ⏭️ 중복: {text!r}")
+            bump("제외-중복")
             continue
         words = len(text.split())
         level = item.get("level") if item.get("level") in LEVELS else LEVELS[1]
@@ -291,18 +302,22 @@ def process_field(field: str, query: str, count: int, level_plan: str, seen: set
                 break
         else:
             print(f"  🚫 너무 김({words}단어): {text!r}")
+            bump("제외-22단어초과")
             continue
         if words < 5:
             print(f"  🚫 너무 짧음: {text!r}")
+            bump("제외-5단어미만")
             continue
         opener = " ".join(norm(text).split()[:2])
         if openers.get(opener, 0) >= 2:
             print(f"  ⏭️ 같은 시작 표현 제한({opener}): {text!r}")
+            bump("제외-같은시작표현")
             continue
         src_idx = item.get("source") if isinstance(item.get("source"), int) else 1
         src = results[src_idx - 1] if 1 <= src_idx <= len(results) else (results[0] if results else {})
         if not grounded(text, src.get("text", "")):
             print(f"  🚫 기사에서 확인되지 않는 문장: {text!r}")
+            bump("제외-기사에없음")
             continue
         tone = item.get("tone") if item.get("tone") in TONES else TONES[1]
         grammar_keys = detect_grammar_keys(text, item.get("grammarKeys"))
@@ -311,12 +326,18 @@ def process_field(field: str, query: str, count: int, level_plan: str, seen: set
         score2 = v.get("score", 0)
         combined = min(score1, score2)
         belongs = bool(v.get("belongs_to_field"))
+        # 수준이 안 맞는다고 판단되면, 검수 모델이 제안한 수준으로 옮기고 (단어 수 한도 안에서) 다시 판단합니다.
+        level_fit = bool(v.get("level_fit", True))
+        best = v.get("best_level")
+        if not level_fit and best in LEVELS and best != level and words <= LEVEL_MAX_WORDS[best]:
+            level, level_fit = best, True
+            bump("수준조정")
         if not v.get("translation_ok", True):
             status, reason = "rejected", f"2차 검수 거부(번역 부정확): {v.get('reason', '')}"
-        elif score1 >= 4 and score2 >= 4 and v.get("level_fit", True):
+        elif score1 >= 4 and score2 >= 4 and level_fit:
             status, reason = "approved", f"1차 {score1}점 / 2차 {score2}점: {v.get('reason', '')}"
         else:
-            status, reason = "pending_review", f"1차 {score1}점 / 2차 {score2}점 / 수준적합 {v.get('level_fit')} — 확인 필요: {v.get('reason', '')}"
+            status, reason = "pending_review", f"1차 {score1}점 / 2차 {score2}점 / 수준적합 {level_fit} — 확인 필요: {v.get('reason', '')}"
         row = {
             "topic": TOPIC_TO_BANK[field],
             "field_tag": field if belongs else None,   # 분야와 관련 없다고 판단되면 공통 문장으로만 쓰입니다
@@ -340,6 +361,9 @@ def process_field(field: str, query: str, count: int, level_plan: str, seen: set
             continue
         seen.add(key)
         inserted += 1
+        bump("저장-" + status)
+        if status != "approved":
+            bump("사유-" + ("점수<4" if min(score1, score2) < 4 else "수준부적합" if not level_fit else "기타"))
         icon = "🚫"
         if status == "approved":
             approved += 1
@@ -364,7 +388,7 @@ def main():
         for a in range(BULK_ANGLES):
             angle = ANGLES[(BULK_ROUND * BULK_ANGLES + a) % len(ANGLES)]
             for field in FIELDS:
-                i, ap = process_field(field, angle.format(kw=FIELD_KW[field]), 7, "왕초보 2개, 기초 회화 2개, 중상급 3개", seen, openers)
+                i, ap = process_field(field, angle.format(kw=FIELD_KW[field]), 10, "왕초보 3개, 기초 회화 3개, 중상급 4개", seen, openers)
                 total_inserted += i
                 total_approved += ap
     else:
@@ -377,12 +401,13 @@ def main():
             for field in group:
                 if total_approved >= DAILY_TARGET:
                     break
-                i, ap = process_field(field, angle.format(kw=FIELD_KW[field]), 4, "왕초보 1개, 기초 회화 1개, 중상급 2개", seen, openers)
+                i, ap = process_field(field, angle.format(kw=FIELD_KW[field]), 6, "왕초보 2개, 기초 회화 2개, 중상급 2개", seen, openers)
                 total_inserted += i
                 total_approved += ap
             if total_approved >= DAILY_TARGET:
                 break
 
+    print("\n[집계] " + ", ".join(f"{k} {v}" for k, v in sorted(STATS.items())))
     print(f"\n총 {total_inserted}개 저장 (그중 {total_approved}개 자동 승인).")
     if MODE != "bulk" and total_approved < DAILY_TARGET:
         print(f"⚠️ 오늘 승인 {total_approved}개로 목표 {DAILY_TARGET}개에 못 미쳤어요 (기사·검수 통과가 부족한 날).")
